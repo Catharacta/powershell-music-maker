@@ -1,0 +1,118 @@
+/* 繝阪が繝悶Ν繝ｼ繧ｿ繝ｪ繧ｺ繝�: 濶ｲ繝ｻ譫�繝ｻ蠖ｱ縺ｯ縺薙％縺ｫ髮�ｴ� */
+:root {
+  --bg: #f7f1dc;
+  --ink: #000;
+  --paper: #fff;
+  --c-beep: #ffd600;
+  --c-gs: #00d4e6;
+  --c-ok: #22c33a;
+  --c-ng: #ff2d2d;
+  --c-accent: #ff4fa3;
+  --c-play: #e11d1d;
+  --border-w: 3px;
+  --border: var(--border-w) solid var(--ink);
+  --shadow-off: 5px;
+  --shadow: var(--shadow-off) var(--shadow-off) 0 var(--ink);
+  --font-head: 'Archivo Black', 'Arial Black', Impact, sans-serif;
+  --font-mono: 'Space Mono', 'JetBrains Mono', Consolas, monospace;
+  --font-body: 'Space Grotesk', 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  border-radius: 0;
+}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+button,
+select,
+input {
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: var(--border);
+  padding: 6px 12px;
+}
+button {
+  font-family: var(--font-head);
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: none;
+}
+button:active {
+  transform: translate(var(--shadow-off), var(--shadow-off));
+  box-shadow: none;
+}
+button.on {
+  background: var(--c-accent);
+}
+input[type='number'] {
+  font-family: var(--font-mono);
+}
+input[type='range'] {
+  padding: 0;
+  accent-color: var(--ink);
+}
+h2,
+h3 {
+  font-family: var(--font-head);
+  text-transform: uppercase;
+  margin: 0;
+}
+.tag {
+  display: inline-block;
+  border: 2px solid var(--ink);
+  padding: 1px 6px;
+  font-family: var(--font-head);
+  font-size: 11px;
+  background: var(--paper);
+}
+.tag.beep {
+  background: var(--c-beep);
+}
+.tag.gs {
+  background: var(--c-gs);
+}
+.result {
+  display: inline-block;
+  border: var(--border);
+  padding: 2px 10px;
+  font-family: var(--font-head);
+  box-shadow: var(--shadow);
+}
+.result.ok {
+  background: var(--c-ok);
+}
+.result.ng {
+  background: var(--c-ng);
+}
+
+/* スクロールバー (ネオブルータリズム) */
+::-webkit-scrollbar {
+  width: 18px;
+  height: 18px;
+}
+::-webkit-scrollbar-track {
+  background: var(--c-beep);
+  border: var(--border);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--c-accent);
+  border: var(--border);
+  box-shadow: inset -3px -3px 0 rgba(0, 0, 0, 0.35);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--c-gs);
+}
+::-webkit-scrollbar-corner {
+  background: var(--ink);
+}
