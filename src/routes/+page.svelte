@@ -4,6 +4,8 @@
   import { GM_PROGRAMS } from '$lib/gm';
   import { PPQ } from '$lib/model';
   import { getCurrentWindow } from '@tauri-apps/api/window';
+  import { save as dialogSave } from '@tauri-apps/plugin-dialog';
+  import { writeTextFile } from '@tauri-apps/plugin-fs';
 
   const win = getCurrentWindow();
   let showTest = $state(false);
@@ -27,14 +29,20 @@
     setTimeout(() => (copied = false), 1500);
   }
 
-  function save() {
-    // PowerShell 5.1 でも文字化けしないよう UTF-8 BOM 付きで保存
-    const blob = new Blob(['\ufeff', app.script], { type: 'text/plain;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'music.ps1';
-    a.click();
-    URL.revokeObjectURL(a.href);
+  async function save() {
+    try {
+      const filePath = await dialogSave({
+        filters: [{ name: 'PowerShell Script', extensions: ['ps1'] }],
+        defaultPath: 'music.ps1'
+      });
+      if (filePath) {
+        // PowerShell 5.1 でも文字化けしないよう UTF-8 BOM 付きで保存
+        await writeTextFile(filePath, '\ufeff' + app.script);
+      }
+    } catch (e) {
+      console.error('Failed to save file:', e);
+      alert('ファイルの保存に失敗しました');
+    }
   }
 
   const quants = [
