@@ -79,6 +79,78 @@ class AppState {
     if (this.activeTrackId === id) this.activeTrackId = this.project.tracks[0].id;
   }
 
+  loadMidiAsNew(info: import('./midi').ParsedMidiInfo) {
+    this.stop();
+    const tracks: Track[] = info.parsedTracks.map((pt) => ({
+      id: nextId(),
+      name: pt.name,
+      output: 'gs',
+      channel: pt.channel,
+      program: pt.program,
+      volume: 100,
+      mute: false,
+      notes: pt.notes.map((n) => ({
+        ...n,
+        id: nextId()
+      }))
+    }));
+
+    this.project = {
+      bpm: info.bpm,
+      bars: info.bars,
+      tracks: tracks.length > 0 ? tracks : [
+        {
+          id: nextId(),
+          name: 'TRACK 1',
+          output: 'gs',
+          channel: 0,
+          program: 0,
+          volume: 100,
+          mute: false,
+          notes: []
+        }
+      ]
+    };
+    this.activeTrackId = this.project.tracks[0].id;
+  }
+
+  appendMidi(info: import('./midi').ParsedMidiInfo) {
+    this.stop();
+    const used = new Set(this.project.tracks.map((t) => t.channel));
+    const newTracks: Track[] = info.parsedTracks.map((pt) => {
+      let ch = pt.channel;
+      // ドラム(9)以外で重複があれば空きチャンネルを探す
+      if (ch !== 9 && used.has(ch)) {
+        let candidate = 0;
+        while (candidate < 16 && (candidate === 9 || used.has(candidate))) {
+          candidate++;
+        }
+        if (candidate < 16) ch = candidate;
+      }
+      used.add(ch);
+
+      return {
+        id: nextId(),
+        name: pt.name,
+        output: 'gs',
+        channel: ch,
+        program: pt.program,
+        volume: 100,
+        mute: false,
+        notes: pt.notes.map((n) => ({
+          ...n,
+          id: nextId()
+        }))
+      };
+    });
+
+    if (newTracks.length > 0) {
+      this.project.tracks.push(...newTracks);
+      this.project.bars = Math.max(this.project.bars, info.bars);
+      this.activeTrackId = newTracks[0].id;
+    }
+  }
+
   private raf = 0;
 
   async play() {

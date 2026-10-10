@@ -6,6 +6,7 @@
   import { getCurrentWindow } from '@tauri-apps/api/window';
   import { save as dialogSave } from '@tauri-apps/plugin-dialog';
   import { writeTextFile } from '@tauri-apps/plugin-fs';
+  import { parseMidi, type ParsedMidiInfo } from '$lib/midi';
 
   const win = getCurrentWindow();
   let showTest = $state(false);
@@ -14,6 +15,41 @@
   let gsRes = $state<TestResult | null>(null);
   let devices = $state<string[]>([]);
   let copied = $state(false);
+
+  let midiFileInput: HTMLInputElement | undefined = $state();
+  let pendingMidi = $state<ParsedMidiInfo | null>(null);
+
+  function triggerMidiFile() {
+    midiFileInput?.click();
+  }
+
+  async function handleMidiFileChange(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    try {
+      const buffer = await file.arrayBuffer();
+      const info = parseMidi(buffer, file.name);
+      pendingMidi = info;
+    } catch (err) {
+      console.error('Failed to parse MIDI:', err);
+      alert('MIDIファイルの解析に失敗しました: ' + err);
+    } finally {
+      input.value = '';
+    }
+  }
+
+  function applyMidiAsNew() {
+    if (!pendingMidi) return;
+    app.loadMidiAsNew(pendingMidi);
+    pendingMidi = null;
+  }
+
+  function applyMidiAppend() {
+    if (!pendingMidi) return;
+    app.appendMidi(pendingMidi);
+    pendingMidi = null;
+  }
 
   async function run(fn: () => Promise<TestResult>, set: (r: TestResult) => void) {
     try {
@@ -84,6 +120,14 @@
         >BEEP重なり {app.timeline.beepConflicts}</span
       >
     {/if}
+    <input
+      type="file"
+      accept=".mid,.midi"
+      style="display:none"
+      bind:this={midiFileInput}
+      onchange={handleMidiFileChange}
+    />
+    <button onclick={triggerMidiFile}>Import MIDI</button>
     <button onclick={() => (app.showScript = !app.showScript)}>Export .ps1</button>
   </header>
 
@@ -145,6 +189,40 @@
           <button onclick={() => (app.showScript = false)}>Close</button>
         </div>
         <textarea readonly value={app.script}></textarea>
+      </div>
+    </div>
+  {/if}
+
+  {#if pendingMidi}
+    <div class="modal">
+      <div class="panel midipanel">
+        <div class="row">
+          <h2>MIDI Import Preview</h2>
+          <span class="spacer"></span>
+          <button onclick={() => (pendingMidi = null)}>Cancel</button>
+        </div>
+        <div class="midi-meta">
+          <div><strong>Name:</strong> {pendingMidi.name}</div>
+          <div><strong>Tempo:</strong> {pendingMidi.bpm} BPM</div>
+          <div><strong>Length:</strong> {pendingMidi.bars} Bars</div>
+          <div><strong>Total Notes:</strong> {pendingMidi.totalNotes}</div>
+        </div>
+        <h3>Tracks ({pendingMidi.parsedTracks.length})</h3>
+        <div class="midi-track-list">
+          {#each pendingMidi.parsedTracks as t, i (i)}
+            <div class="midi-track-item">
+              <span class="tag gs">GS</span>
+              <span class="tname">{t.name}</span>
+              <span class="tinfo">Ch {t.channel} / Prog {t.program} / {t.notes.length} notes</span>
+            </div>
+          {/each}
+        </div>
+        <div class="row" style="margin-top:auto;padding-top:10px;border-top:var(--border);">
+          <span class="spacer"></span>
+          <button class="action-btn" onclick={applyMidiAsNew}>新規プロジェクトとして開く</button>
+          <button class="action-btn" onclick={applyMidiAppend}>現在のプロジェクトに追加</button>
+          <button onclick={() => (pendingMidi = null)}>キャンセル</button>
+        </div>
       </div>
     </div>
   {/if}
@@ -382,6 +460,58 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+  }
+  .midipanel {
+    height: min(600px, 90vh);
+    width: min(640px, 94vw);
+  }
+  .midi-meta {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+    padding: 10px;
+    background: var(--paper);
+    border: var(--border);
+    font-size: 13px;
+  }
+  .midi-track-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px;
+    border: var(--border);
+    background: var(--paper);
+  }
+  .midi-track-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-bottom: 1px dashed var(--ink);
+    font-size: 13px;
+  }
+  .midi-track-item:last-child {
+    border-bottom: none;
+  }
+  .midi-track-item .tname {
+    font-family: var(--font-head);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .midi-track-item .tinfo {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #444;
+  }
+  .action-btn {
+    background: var(--c-gs);
+  }
+  .action-btn:hover {
+    background: var(--c-beep);
   }
   textarea {
     flex: 1;
