@@ -50,7 +50,7 @@ $sw = [Diagnostics.Stopwatch]::StartNew()
 
 ## ディレクトリ案
 ```
-src/            Svelte UI (lib/pianoroll, lib/store, lib/generator)
+src/            Svelte UI (lib/PianoRoll, lib/store, lib/generator, lib/settings, lib/i18n, lib/licenses, lib/SettingsModal)
 src-tauri/      Rust (commands: play, stop, test_beep, test_gs, list_midi_devices)
 docs/           ドキュメント
 .agents/skills/ エージェント用スキル

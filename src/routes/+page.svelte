@@ -21,11 +21,15 @@
     FolderOpen,
     Save,
     Upload,
-    FileCode
+    FileCode,
+    Settings
   } from '@lucide/svelte';
+  import SettingsModal from '$lib/SettingsModal.svelte';
+  import { t } from '$lib/i18n';
 
   const win = getCurrentWindow();
   let showTest = $state(false);
+  let showSettings = $state(false);
   let beepPs = $state<TestResult | null>(null);
   let beepPwsh = $state<TestResult | null>(null);
   let gsRes = $state<TestResult | null>(null);
@@ -49,7 +53,7 @@
       pendingMidi = info;
     } catch (err) {
       console.error('Failed to parse MIDI:', err);
-      alert('MIDIファイルの解析に失敗しました: ' + err);
+      alert(`${t('alert_midi_parse_fail')}: ${err}`);
     } finally {
       input.value = '';
     }
@@ -71,7 +75,7 @@
     try {
       set(await fn());
     } catch (e) {
-      set({ ok: false, exitCode: null, stdout: '', stderr: String(e), message: '呼び出し失敗' });
+      set({ ok: false, exitCode: null, stdout: '', stderr: String(e), message: t('test_call_failed') });
     }
   }
 
@@ -93,7 +97,7 @@
       }
     } catch (e) {
       console.error('Failed to save file:', e);
-      alert('ファイルの保存に失敗しました');
+      alert(t('status_save_failed'));
     }
   }
 
@@ -163,27 +167,27 @@
   <header>
     <div class="header-row">
       <div class="header-group">
-        <button class="icon-text-btn" onclick={() => app.newProject()} title="新規作成 (Ctrl+N)">
+        <button class="icon-text-btn" onclick={() => app.newProject()} title={t('tooltip_new')}>
           <FilePlus size={14} strokeWidth={2.5} />
-          <span>New</span>
+          <span>{t('file_new')}</span>
         </button>
-        <button class="icon-text-btn" onclick={() => app.openProjectDialog()} title="プロジェクトを開く (Ctrl+O)">
+        <button class="icon-text-btn" onclick={() => app.openProjectDialog()} title={t('tooltip_open')}>
           <FolderOpen size={14} strokeWidth={2.5} />
-          <span>Open</span>
+          <span>{t('file_open')}</span>
         </button>
-        <button class="icon-text-btn" onclick={() => app.saveProject()} title="上書き保存 (Ctrl+S)">
+        <button class="icon-text-btn" onclick={() => app.saveProject()} title={t('tooltip_save')}>
           <Save size={14} strokeWidth={2.5} />
-          <span>Save</span>
+          <span>{t('file_save')}</span>
         </button>
-        <button class="icon-text-btn" onclick={() => app.saveProjectAs()} title="名前を付けて保存 (Ctrl+Shift+S)">
+        <button class="icon-text-btn" onclick={() => app.saveProjectAs()} title={t('tooltip_save_as')}>
           <Save size={14} strokeWidth={2.5} />
-          <span>Save As</span>
+          <span>{t('file_save_as')}</span>
         </button>
       </div>
       <span class="header-sep"></span>
-      <button onclick={() => app.play()} disabled={app.playing}>Play</button>
-      <button onclick={() => app.stop()}>Stop</button>
-      <button onclick={() => (showTest = true)}>Test</button>
+      <button onclick={() => app.play()} disabled={app.playing}>{t('play')}</button>
+      <button onclick={() => app.stop()}>{t('stop')}</button>
+      <button onclick={() => (showTest = true)}>{t('test_env')}</button>
 
       <span class="spacer"></span>
 
@@ -194,32 +198,40 @@
         bind:this={midiFileInput}
         onchange={handleMidiFileChange}
       />
-      <button class="icon-text-btn" onclick={triggerMidiFile} title="MIDIファイルを読み込む">
+      <button class="icon-text-btn" onclick={triggerMidiFile} title={t('tooltip_import_midi')}>
         <Upload size={14} strokeWidth={2.5} />
-        <span>Import MIDI</span>
+        <span>{t('file_import_midi')}</span>
       </button>
       <button
         class="icon-text-btn export-btn"
         onclick={() => (app.showScript = !app.showScript)}
-        title="PowerShellスクリプトを出力"
+        title={t('tooltip_export_script')}
       >
         <FileCode size={14} strokeWidth={2.5} />
-        <span>Export .ps1</span>
+        <span>{t('export_script')}</span>
+      </button>
+      <button
+        class="icon-text-btn settings-btn"
+        onclick={() => (showSettings = true)}
+        title={t('settings')}
+      >
+        <Settings size={14} strokeWidth={2.5} />
+        <span>{t('settings')}</span>
       </button>
     </div>
 
     <div class="header-row sub-row">
       <label class="bpm"
-        >BPM <input type="number" min="30" max="300" bind:value={app.project.bpm} /></label
+        >{t('bpm')} <input type="number" min="30" max="300" bind:value={app.project.bpm} /></label
       >
       <label
-        >Grid
+        >{t('grid')}
         <select bind:value={app.quant}>
           {#each quants as [v, l] (v)}<option value={v}>{l}</option>{/each}
         </select></label
       >
       <label
-        >Length
+        >{t('note_length')}
         <select
           value={app.noteLengthChoice}
           onchange={(e) => {
@@ -227,16 +239,16 @@
             app.setNoteLength(val === 'grid' ? 'grid' : Number(val));
           }}
         >
-          <option value="grid">Grid</option>
+          <option value="grid">{t('note_len_grid')}</option>
           {#each noteLengths as [v, l] (v)}<option value={v}>{l}</option>{/each}
         </select></label
       >
       <span class="header-sep"></span>
       <label
-        >Bars <input type="number" min="1" max="64" bind:value={app.project.bars} style="width:70px" /></label
+        >{t('bars')} <input type="number" min="1" max="64" bind:value={app.project.bars} style="width:70px" /></label
       >
       <label class="zoom-ctrl"
-        >Zoom
+        >{t('zoom')}
         <button type="button" class="sq-btn" onclick={() => app.zoomOut()} title="Zoom Out (-)">-</button>
         <button type="button" class="zoom-val" onclick={() => app.zoomReset()} title="Reset Zoom (100%)">
           {Math.round((app.pxPerTick / 0.2) * 100)}%
@@ -247,45 +259,45 @@
       <span class="spacer"></span>
 
       {#if app.timeline.beepConflicts > 0}
-        <span class="result ng" title="Beepは同時1音。重なった音は切り詰め/破棄されます"
-          >BEEP重なり {app.timeline.beepConflicts}</span
+        <span class="result ng" title={t('beep_conflict_tooltip')}
+          >{t('beep_conflicts')} {app.timeline.beepConflicts}</span
         >
       {/if}
     </div>
   </header>
 
   <aside>
-    <h2>Tracks</h2>
-    {#each app.project.tracks as t (t.id)}
+    <h2>{t('track_title')}</h2>
+    {#each app.project.tracks as tr (tr.id)}
       <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
       <div
         class="track"
-        class:active={t.id === app.activeTrack.id}
-        style="--tc: var(--c-{t.output})"
-        onclick={() => (app.activeTrackId = t.id)}
+        class:active={tr.id === app.activeTrack.id}
+        style="--tc: var(--c-{tr.output})"
+        onclick={() => (app.activeTrackId = tr.id)}
       >
-        {#if t.id === app.activeTrack.id}<span class="editing">EDITING</span>{/if}
+        {#if tr.id === app.activeTrack.id}<span class="editing">{t('editing_badge')}</span>{/if}
         <div class="row">
-          <input class="name" bind:value={t.name} />
-          <span class="tag {t.output}">{t.output === 'beep' ? 'BEEP' : 'GS'}</span>
+          <input class="name" bind:value={tr.name} />
+          <span class="tag {tr.output}">{tr.output === 'beep' ? 'BEEP' : 'GS'}</span>
         </div>
         <div class="row">
-          <button class="sq" class:on={t.mute} onclick={() => (t.mute = !t.mute)} title="Mute">M</button>
-          <select bind:value={t.output}>
+          <button class="sq" class:on={tr.mute} onclick={() => (tr.mute = !tr.mute)} title={t('tooltip_mute')}>M</button>
+          <select bind:value={tr.output}>
             <option value="beep">Beep</option>
             <option value="gs">GS Wavetable</option>
           </select>
-          <button class="sq" onclick={() => app.removeTrack(t.id)} title="Delete"><X size={14} strokeWidth={2.5} /></button>
+          <button class="sq" onclick={() => app.removeTrack(tr.id)} title={t('action_delete')}><X size={14} strokeWidth={2.5} /></button>
         </div>
-        {#if t.output === 'gs'}
+        {#if tr.output === 'gs'}
           <div class="row">
-            <select bind:value={t.program}>
+            <select bind:value={tr.program}>
               {#each GM_PROGRAMS as n, i (i)}<option value={i}>{i} {n}</option>{/each}
             </select>
-            <input type="number" min="0" max="15" bind:value={t.channel} style="width:60px" title="MIDI channel (9=drums)" />
+            <input type="number" min="0" max="15" bind:value={tr.channel} style="width:60px" title={t('tooltip_channel')} />
           </div>
         {/if}
-        <div class="row">Vol <input type="range" min="0" max="100" bind:value={t.volume} style="flex:1;min-width:0" /></div>
+        <div class="row">Vol <input type="range" min="0" max="100" bind:value={tr.volume} style="flex:1;min-width:0" /></div>
       </div>
     {/each}
     <div class="row">
@@ -303,60 +315,60 @@
           class="tool-btn"
           class:on={app.toolMode === 'draw'}
           onclick={() => (app.toolMode = 'draw')}
-          title="鉛筆ツール (クリックでノート作成、Shift+ドラッグで選択)"
+          title={t('tooltip_draw')}
         >
           <Pencil size={13} strokeWidth={2.5} />
-          <span>Draw</span>
+          <span>{t('tool_draw')}</span>
         </button>
         <button
           class="tool-btn"
           class:on={app.toolMode === 'select'}
           onclick={() => (app.toolMode = 'select')}
-          title="選択ツール (ドラッグで範囲選択)"
+          title={t('tooltip_select')}
         >
           <BoxSelect size={13} strokeWidth={2.5} />
-          <span>Select</span>
+          <span>{t('tool_select')}</span>
         </button>
         <span class="sep"></span>
-        <button class="sq-action" onclick={() => app.selectAll()} title="全選択 (Ctrl+A)">
+        <button class="sq-action" onclick={() => app.selectAll()} title={t('tooltip_select_all')}>
           <CheckSquare size={12} strokeWidth={2.5} />
-          <span>All</span>
+          <span>{t('action_select_all')}</span>
         </button>
         <button
           class="sq-action"
           onclick={() => app.copySelected()}
           disabled={app.selectedNoteIds.length === 0}
-          title="コピー (Ctrl+C)"
+          title={t('tooltip_copy')}
         >
           <Copy size={12} strokeWidth={2.5} />
-          <span>Copy</span>
+          <span>{t('action_copy')}</span>
         </button>
         <button
           class="sq-action"
           onclick={() => app.paste()}
           disabled={!app.clipboard || app.clipboard.length === 0}
-          title="貼り付け (Ctrl+V)"
+          title={t('tooltip_paste')}
         >
           <ClipboardPaste size={12} strokeWidth={2.5} />
-          <span>Paste</span>
+          <span>{t('action_paste')}</span>
         </button>
         <button
           class="sq-action"
           onclick={() => app.duplicateSelected()}
           disabled={app.selectedNoteIds.length === 0}
-          title="複製 (Ctrl+D)"
+          title={t('tooltip_duplicate')}
         >
           <CopyPlus size={12} strokeWidth={2.5} />
-          <span>Dup</span>
+          <span>{t('action_duplicate')}</span>
         </button>
         <button
           class="sq-action del"
           onclick={() => app.deleteSelected()}
           disabled={app.selectedNoteIds.length === 0}
-          title="削除 (Del)"
+          title={t('tooltip_delete')}
         >
           <Trash2 size={12} strokeWidth={2.5} />
-          <span>Del</span>
+          <span>{t('action_delete')}</span>
         </button>
         {#if app.selectedNoteIds.length > 0}
           <span class="selected-badge">{app.selectedNoteIds.length} sel</span>
@@ -364,7 +376,7 @@
       </div>
     </div>
     <div class="hint">
-      Shift+ドラッグ: 範囲選択 | ドラッグ: 移動 | Alt+ドラッグ: 複製移動 | 矢印キー: 移動 | Shift+←/→: 長さ伸縮 | 右クリック: 削除 | Ctrl+C/V/D: コピペ・複製
+      {t('piano_roll_hint')}
     </div>
     <div class="roll"><PianoRoll /></div>
     {#if app.status}<div class="result ng">{app.status}</div>{/if}
@@ -378,11 +390,11 @@
           <span class="spacer"></span>
           <label class="check-opt">
             <input type="checkbox" bind:checked={app.visualizer} />
-            ターミナル演出
+            {t('settings_visualizer')}
           </label>
-          <button onclick={copy}>{copied ? 'Copied!' : 'Copy'}</button>
-          <button onclick={save}>Save .ps1</button>
-          <button onclick={() => (app.showScript = false)}>Close</button>
+          <button onclick={copy}>{copied ? t('script_modal_copied') : t('script_modal_copy')}</button>
+          <button onclick={save}>{t('script_modal_save')}</button>
+          <button onclick={() => (app.showScript = false)}>{t('script_modal_close')}</button>
         </div>
         <textarea readonly value={app.script}></textarea>
       </div>
@@ -393,9 +405,9 @@
     <div class="modal">
       <div class="panel midipanel">
         <div class="row">
-          <h2>MIDI Import Preview</h2>
+          <h2>{t('midi_import_title')}</h2>
           <span class="spacer"></span>
-          <button onclick={() => (pendingMidi = null)}>Cancel</button>
+          <button onclick={() => (pendingMidi = null)}>{t('cancel')}</button>
         </div>
         <div class="midi-meta">
           <div><strong>Name:</strong> {pendingMidi.name}</div>
@@ -415,9 +427,9 @@
         </div>
         <div class="row" style="margin-top:auto;padding-top:10px;border-top:var(--border);">
           <span class="spacer"></span>
-          <button class="action-btn" onclick={applyMidiAsNew}>新規プロジェクトとして開く</button>
-          <button class="action-btn" onclick={applyMidiAppend}>現在のプロジェクトに追加</button>
-          <button onclick={() => (pendingMidi = null)}>キャンセル</button>
+          <button class="action-btn" onclick={applyMidiAsNew}>{t('midi_import_new')}</button>
+          <button class="action-btn" onclick={applyMidiAppend}>{t('midi_import_append')}</button>
+          <button onclick={() => (pendingMidi = null)}>{t('cancel')}</button>
         </div>
       </div>
     </div>
@@ -427,34 +439,36 @@
     <div class="modal">
       <div class="panel testpanel">
         <div class="row">
-          <h2>Test</h2>
+          <h2>{t('test_modal_title')}</h2>
           <span class="spacer"></span>
-          <button onclick={() => (showTest = false)}>Close</button>
+          <button onclick={() => (showTest = false)}>{t('settings_close')}</button>
         </div>
         <div class="tests">
           <div class="row">
-            <button onclick={() => run(() => app.testBeep('powershell'), (r) => (beepPs = r))}>Beep (PS 5.1)</button>
+            <button onclick={() => run(() => app.testBeep('powershell'), (r) => (beepPs = r))}>{t('test_beep_ps5')}</button>
             {#if beepPs}<span class="result" class:ok={beepPs.ok} class:ng={!beepPs.ok}>{beepPs.ok ? 'OK' : 'NG'}</span>{/if}
           </div>
           {#if beepPs}<div class="msg">{beepPs.message}{beepPs.stderr ? `\n${beepPs.stderr}` : ''}</div>{/if}
           <div class="row">
-            <button onclick={() => run(() => app.testBeep('pwsh'), (r) => (beepPwsh = r))}>Beep (pwsh 7)</button>
+            <button onclick={() => run(() => app.testBeep('pwsh'), (r) => (beepPwsh = r))}>{t('test_beep_pwsh')}</button>
             {#if beepPwsh}<span class="result" class:ok={beepPwsh.ok} class:ng={!beepPwsh.ok}>{beepPwsh.ok ? 'OK' : 'NG'}</span>{/if}
           </div>
           {#if beepPwsh}<div class="msg">{beepPwsh.message}{beepPwsh.stderr ? `\n${beepPwsh.stderr}` : ''}</div>{/if}
           <div class="row">
-            <button onclick={() => run(() => app.testGs(), (r) => (gsRes = r))}>GS test</button>
+            <button onclick={() => run(() => app.testGs(), (r) => (gsRes = r))}>{t('test_gs_title')}</button>
             {#if gsRes}<span class="result" class:ok={gsRes.ok} class:ng={!gsRes.ok}>{gsRes.ok ? 'OK' : 'NG'}</span>{/if}
           </div>
           {#if gsRes}<div class="msg">{gsRes.message}</div>{/if}
           <div class="row">
-            <button onclick={async () => (devices = await app.devices())}>MIDI devices</button>
+            <button onclick={async () => (devices = await app.devices())}>{t('test_midi_devices')}</button>
           </div>
           {#each devices as d (d)}<div class="msg">{d}</div>{/each}
         </div>
       </div>
     </div>
   {/if}
+
+  <SettingsModal open={showSettings} onclose={() => (showSettings = false)} />
 </div>
 
 <style>
@@ -881,5 +895,11 @@
     width: 15px;
     height: 15px;
     accent-color: var(--c-beep);
+  }
+  .settings-btn {
+    background: #ffffff;
+  }
+  .settings-btn:hover {
+    background: var(--c-beep);
   }
 </style>

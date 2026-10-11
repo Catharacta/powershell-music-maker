@@ -12,6 +12,8 @@ import {
 } from './model';
 import { buildTimeline } from './timeline';
 import { generateScript } from './generator';
+import { settings } from './settings.svelte';
+import { t } from './i18n';
 
 export interface TestResult {
   ok: boolean;
@@ -53,6 +55,28 @@ function demo(): Project {
   };
 }
 
+function initialProject(): Project {
+  if (settings.editor.loadDemoNotes) {
+    return demo();
+  }
+  return {
+    bpm: settings.editor.defaultBpm,
+    bars: settings.editor.defaultBars,
+    tracks: [
+      {
+        id: 1,
+        name: 'TRACK 1',
+        output: settings.editor.defaultOutput,
+        channel: 0,
+        program: 0,
+        volume: 100,
+        mute: false,
+        notes: []
+      }
+    ]
+  };
+}
+
 export interface ClipboardNote {
   startTickOffset: number;
   durationTick: number;
@@ -61,13 +85,13 @@ export interface ClipboardNote {
 }
 
 class AppState {
-  project = $state<Project>(demo());
+  project = $state<Project>(initialProject());
   activeTrackId = $state(1);
   selectedNoteIds = $state<number[]>([]);
   clipboard = $state<ClipboardNote[] | null>(null);
   toolMode = $state<'draw' | 'select'>('draw');
   /** グリッド(tick) */
-  quant = $state(PPQ / 4);
+  quant = $state(settings.editor.defaultQuant);
   /** 新規ノート長設定 ('grid' または tick数) */
   noteLengthChoice = $state<'grid' | number>('grid');
 
@@ -79,14 +103,14 @@ class AppState {
   playing = $state(false);
   playheadMs = $state(-1);
   showScript = $state(false);
-  visualizer = $state(true);
+  visualizer = $state(settings.script.visualizer);
   status = $state('');
 
   currentFilePath = $state<string | null>(null);
   isDirty = $state(false);
 
   activeTrack = $derived(this.project.tracks.find((t) => t.id === this.activeTrackId) ?? this.project.tracks[0]);
-  timeline = $derived(buildTimeline(this.project));
+  timeline = $derived(buildTimeline(this.project, { beepOverlap: settings.script.beepOverlap }));
   script = $derived(generateScript(this.project, this.timeline, { visualizer: this.visualizer }));
   totalTicks = $derived(this.project.bars * BEATS_PER_BAR * PPQ);
 
@@ -273,14 +297,15 @@ class AppState {
     this.pxPerTick = Math.min(1.6, Math.max(0.04, Math.round(val * 1000) / 1000));
   }
 
-  addTrack(output: Output) {
+  addTrack(output?: Output) {
+    const out = output ?? settings.editor.defaultOutput;
     const used = new Set(this.project.tracks.map((t) => t.channel));
     let channel = 0;
     while (used.has(channel) && channel < 15) channel++;
     const t: Track = {
       id: nextId(),
       name: `TRACK ${this.project.tracks.length + 1}`,
-      output,
+      output: out,
       channel,
       program: 0,
       volume: 100,
@@ -384,7 +409,7 @@ class AppState {
     try {
       await invoke('play', { events: tl.events });
     } catch (e) {
-      this.status = `再生失敗: ${e}`;
+      this.status = `${t('status_play_failed')}: ${e}`;
       return;
     }
     this.status = '';
@@ -415,13 +440,13 @@ class AppState {
     this.clearSelection();
     this.currentFilePath = null;
     this.project = {
-      bpm: 120,
-      bars: 8,
+      bpm: settings.editor.defaultBpm,
+      bars: settings.editor.defaultBars,
       tracks: [
         {
           id: nextId(),
           name: 'TRACK 1',
-          output: 'gs',
+          output: settings.editor.defaultOutput,
           channel: 0,
           program: 0,
           volume: 100,
@@ -431,7 +456,7 @@ class AppState {
       ]
     };
     this.setActiveTrack(this.project.tracks[0].id);
-    this.status = '新規プロジェクトを作成しました';
+    this.status = t('status_new_project');
   }
 
   loadProject(newProject: Project, filePath: string | null = null) {
@@ -476,8 +501,8 @@ class AppState {
       await this.openProjectFile(selected);
     } catch (e) {
       console.error('Failed to open project dialog:', e);
-      this.status = `開くのに失敗しました: ${e}`;
-      alert(`プロジェクトを開けませんでした: ${e}`);
+      this.status = `${t('status_open_failed')}: ${e}`;
+      alert(`${t('status_open_failed')}: ${e}`);
     }
   }
 
@@ -487,14 +512,14 @@ class AppState {
       const parsed = JSON.parse(text);
       const proj = validateProjectFile(parsed);
       if (!proj) {
-        throw new Error('プロジェクトファイルの形式が無効です');
+        throw new Error(t('status_invalid_format'));
       }
       this.loadProject(proj, filePath);
-      this.status = `プロジェクトを開きました: ${this.projectName}`;
+      this.status = `${t('status_opened_project')}: ${this.projectName}`;
     } catch (e) {
       console.error('Failed to load project:', e);
-      this.status = `プロジェクトの読み込みに失敗しました: ${e}`;
-      alert(`プロジェクトの読み込みに失敗しました: ${e}`);
+      this.status = `${t('status_open_failed')}: ${e}`;
+      alert(`${t('status_open_failed')}: ${e}`);
     }
   }
 
@@ -520,8 +545,8 @@ class AppState {
       return ok;
     } catch (e) {
       console.error('Failed to save project as:', e);
-      this.status = `名前を付けて保存に失敗しました: ${e}`;
-      alert(`名前を付けて保存に失敗しました: ${e}`);
+      this.status = `${t('status_save_failed')}: ${e}`;
+      alert(`${t('status_save_failed')}: ${e}`);
       return false;
     }
   }
@@ -535,12 +560,12 @@ class AppState {
       };
       const jsonStr = JSON.stringify(fileData, null, 2);
       await writeTextFile(filePath, jsonStr);
-      this.status = `プロジェクトを保存しました: ${filePath.split(/[\\/]/).pop()}`;
+      this.status = `${t('status_saved_project')}: ${filePath.split(/[\\/]/).pop()}`;
       return true;
     } catch (e) {
       console.error('Failed to write project file:', e);
-      this.status = `保存に失敗しました: ${e}`;
-      alert(`プロジェクトの保存に失敗しました: ${e}`);
+      this.status = `${t('status_save_failed')}: ${e}`;
+      alert(`${t('status_save_failed')}: ${e}`);
       return false;
     }
   }

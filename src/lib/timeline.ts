@@ -25,9 +25,14 @@ export interface Timeline {
   hasBeep: boolean;
 }
 
+export interface TimelineOptions {
+  beepOverlap?: 'latest' | 'ignore';
+}
+
 const RANK: Record<EventKind, number> = { gs_prog: 0, gs_off: 1, gs_on: 2, beep: 2 };
 
-export function buildTimeline(p: Project): Timeline {
+export function buildTimeline(p: Project, options: TimelineOptions = {}): Timeline {
+  const beepOverlap = options.beepOverlap ?? 'latest';
   const events: TLEvent[] = [];
   let hasGs = false;
   let hasBeep = false;
@@ -69,32 +74,58 @@ export function buildTimeline(p: Project): Timeline {
   beepNotes.sort((a, b) => a.note.startTick - b.note.startTick || b.note.pitch - a.note.pitch);
 
   const kept: typeof beepNotes = [];
-  for (const item of beepNotes) {
-    const last = kept[kept.length - 1];
-    if (last && last.note.startTick === item.note.startTick) {
-      beepConflicts++;
-      continue;
+  if (beepOverlap === 'ignore') {
+    // 先優先: 発音中の音がある場合、その終了tickより前に開始する後の音は無視する
+    let currentEndTick = 0;
+    for (const item of beepNotes) {
+      if (item.note.startTick < currentEndTick) {
+        beepConflicts++;
+        continue;
+      }
+      kept.push(item);
+      currentEndTick = item.note.startTick + item.note.durationTick;
     }
-    kept.push(item);
-  }
-  kept.forEach((item, i) => {
-    hasBeep = true;
-    const next = kept[i + 1];
-    let endTick = item.note.startTick + item.note.durationTick;
-    if (next && next.note.startTick < endTick) {
-      endTick = next.note.startTick;
-      beepConflicts++;
-    }
-    const s = Math.round(tickToMs(item.note.startTick, p.bpm));
-    const e = Math.round(tickToMs(endTick, p.bpm));
-    events.push({
-      tMs: s,
-      kind: 'beep',
-      trackIndex: item.trackIndex,
-      freq: noteToFreq(item.note.pitch),
-      durMs: Math.max(1, e - s)
+    kept.forEach((item) => {
+      hasBeep = true;
+      const s = Math.round(tickToMs(item.note.startTick, p.bpm));
+      const e = Math.round(tickToMs(item.note.startTick + item.note.durationTick, p.bpm));
+      events.push({
+        tMs: s,
+        kind: 'beep',
+        trackIndex: item.trackIndex,
+        freq: noteToFreq(item.note.pitch),
+        durMs: Math.max(1, e - s)
+      });
     });
-  });
+  } else {
+    // 後優先: 全Beepトラックを1本にまとめ、後から来た音を優先して前の音を切り詰める
+    for (const item of beepNotes) {
+      const last = kept[kept.length - 1];
+      if (last && last.note.startTick === item.note.startTick) {
+        beepConflicts++;
+        continue;
+      }
+      kept.push(item);
+    }
+    kept.forEach((item, i) => {
+      hasBeep = true;
+      const next = kept[i + 1];
+      let endTick = item.note.startTick + item.note.durationTick;
+      if (next && next.note.startTick < endTick) {
+        endTick = next.note.startTick;
+        beepConflicts++;
+      }
+      const s = Math.round(tickToMs(item.note.startTick, p.bpm));
+      const e = Math.round(tickToMs(endTick, p.bpm));
+      events.push({
+        tMs: s,
+        kind: 'beep',
+        trackIndex: item.trackIndex,
+        freq: noteToFreq(item.note.pitch),
+        durMs: Math.max(1, e - s)
+      });
+    });
+  }
 
   events.sort((a, b) => a.tMs - b.tMs || RANK[a.kind] - RANK[b.kind]);
   const endMs = events.reduce((m, e) => Math.max(m, e.tMs + (e.durMs ?? 0)), 0);
