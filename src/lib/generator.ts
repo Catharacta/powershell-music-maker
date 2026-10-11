@@ -104,6 +104,7 @@ public class TrackState {
   public static void Start() {
     Sw = Stopwatch.StartNew();
     Running = true;
+    try { Console.Clear(); } catch {}
     try { Console.CursorVisible = false; } catch {}
     RenderThread = new Thread(RenderLoop);
     RenderThread.IsBackground = true;
