@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build and Publish Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'PowerShell Music Maker ${{ github.ref_name }}'
+          releaseBody: |
+            ## PowerShell Music Maker ${{ github.ref_name }}
+
+            ### 配布形式
+            - **インストーラー版 (NSIS)**: `PowerShell Music Maker_*_x64-setup.exe`
+            - **インストーラー版 (MSI)**: `PowerShell Music Maker_*_x64_en-US.msi`
+            - **ポータブル版 (インストール不要)**: `powershell-music-maker.exe`
+          releaseDraft: false
+          prerelease: false
+
+      - name: Upload portable standalone exe to release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" src-tauri/target/release/powershell-music-maker.exe --clobber

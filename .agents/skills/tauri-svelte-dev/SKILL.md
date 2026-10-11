@@ -28,6 +28,7 @@ src-tauri/src/         Rust: Tauriコマンド
 - タイムラインはTSで生成しJSONでRustへ(単一の真実)
 - 再生はキャンセル可能にし、停止時に必ず All Notes Off
 - UIは Svelte 5 runes(`$state`, `$derived`)を使用
+- 絵文字は使用禁止。アイコンにはアイコンライブラリ(`@lucide/svelte`)を使用する
 - 雛形作成: `npm create tauri-app@latest`(Svelte + TypeScript)
 - 検証: `npm run tauri dev`、生成した.ps1を実際にpowershell/pwshで実行して確認
 - Windows専用(winmm依存)。他OSではビルドを `cfg(windows)` で分ける

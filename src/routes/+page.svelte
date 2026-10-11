@@ -7,6 +7,17 @@
   import { save as dialogSave } from '@tauri-apps/plugin-dialog';
   import { writeTextFile } from '@tauri-apps/plugin-fs';
   import { parseMidi, type ParsedMidiInfo } from '$lib/midi';
+  import {
+    Music,
+    Pencil,
+    BoxSelect,
+    CheckSquare,
+    Copy,
+    ClipboardPaste,
+    CopyPlus,
+    Trash2,
+    X
+  } from '@lucide/svelte';
 
   const win = getCurrentWindow();
   let showTest = $state(false);
@@ -94,7 +105,7 @@
 
 <div class="app">
   <div class="titlebar" data-tauri-drag-region>
-    <span class="logo" data-tauri-drag-region>♪</span>
+    <span class="logo" data-tauri-drag-region><img src="/app-icon.png" alt="App Icon" class="titlebar-icon-img" data-tauri-drag-region /></span>
     <span class="title" data-tauri-drag-region>PowerShell Music Maker</span>
     <span class="spacer" data-tauri-drag-region></span>
     <button class="wbtn min" onclick={() => win.minimize()} title="Minimize">_</button>
@@ -152,7 +163,7 @@
         style="--tc: var(--c-{t.output})"
         onclick={() => (app.activeTrackId = t.id)}
       >
-        {#if t.id === app.activeTrack.id}<span class="editing">▶ EDITING</span>{/if}
+        {#if t.id === app.activeTrack.id}<span class="editing">EDITING</span>{/if}
         <div class="row">
           <input class="name" bind:value={t.name} />
           <span class="tag {t.output}">{t.output === 'beep' ? 'BEEP' : 'GS'}</span>
@@ -163,7 +174,7 @@
             <option value="beep">Beep</option>
             <option value="gs">GS Wavetable</option>
           </select>
-          <button class="sq" onclick={() => app.removeTrack(t.id)} title="Delete">×</button>
+          <button class="sq" onclick={() => app.removeTrack(t.id)} title="Delete"><X size={14} strokeWidth={2.5} /></button>
         </div>
         {#if t.output === 'gs'}
           <div class="row">
@@ -183,8 +194,77 @@
   </aside>
 
   <main>
-    <h2>Piano Roll — {app.activeTrack.name}</h2>
-    <div class="hint">クリック:追加 / ドラッグ:移動 / 右端ドラッグ:長さ / 右クリック:削除 / Ctrl+ホイール:横ズーム</div>
+    <div class="roll-header">
+      <h2>Piano Roll — {app.activeTrack.name}</h2>
+      <span class="spacer"></span>
+      <div class="roll-tools">
+        <button
+          class="tool-btn"
+          class:on={app.toolMode === 'draw'}
+          onclick={() => (app.toolMode = 'draw')}
+          title="鉛筆ツール (クリックでノート作成、Shift+ドラッグで選択)"
+        >
+          <Pencil size={13} strokeWidth={2.5} />
+          <span>Draw</span>
+        </button>
+        <button
+          class="tool-btn"
+          class:on={app.toolMode === 'select'}
+          onclick={() => (app.toolMode = 'select')}
+          title="選択ツール (ドラッグで範囲選択)"
+        >
+          <BoxSelect size={13} strokeWidth={2.5} />
+          <span>Select</span>
+        </button>
+        <span class="sep"></span>
+        <button class="sq-action" onclick={() => app.selectAll()} title="全選択 (Ctrl+A)">
+          <CheckSquare size={12} strokeWidth={2.5} />
+          <span>All</span>
+        </button>
+        <button
+          class="sq-action"
+          onclick={() => app.copySelected()}
+          disabled={app.selectedNoteIds.length === 0}
+          title="コピー (Ctrl+C)"
+        >
+          <Copy size={12} strokeWidth={2.5} />
+          <span>Copy</span>
+        </button>
+        <button
+          class="sq-action"
+          onclick={() => app.paste()}
+          disabled={!app.clipboard || app.clipboard.length === 0}
+          title="貼り付け (Ctrl+V)"
+        >
+          <ClipboardPaste size={12} strokeWidth={2.5} />
+          <span>Paste</span>
+        </button>
+        <button
+          class="sq-action"
+          onclick={() => app.duplicateSelected()}
+          disabled={app.selectedNoteIds.length === 0}
+          title="複製 (Ctrl+D)"
+        >
+          <CopyPlus size={12} strokeWidth={2.5} />
+          <span>Dup</span>
+        </button>
+        <button
+          class="sq-action del"
+          onclick={() => app.deleteSelected()}
+          disabled={app.selectedNoteIds.length === 0}
+          title="削除 (Del)"
+        >
+          <Trash2 size={12} strokeWidth={2.5} />
+          <span>Del</span>
+        </button>
+        {#if app.selectedNoteIds.length > 0}
+          <span class="selected-badge">{app.selectedNoteIds.length} sel</span>
+        {/if}
+      </div>
+    </div>
+    <div class="hint">
+      Shift+ドラッグ: 範囲選択 | ドラッグ: 移動 | Alt+ドラッグ: 複製移動 | 矢印キー: 微移動 | 右クリック: 削除 | Ctrl+C/V/D: コピペ・複製
+    </div>
     <div class="roll"><PianoRoll /></div>
     {#if app.status}<div class="result ng">{app.status}</div>{/if}
   </main>
@@ -423,6 +503,12 @@
     font-size: 20px;
     border-right: var(--border);
   }
+  .titlebar-icon-img {
+    width: 26px;
+    height: 26px;
+    object-fit: contain;
+    pointer-events: none;
+  }
   .title {
     font-family: var(--font-head);
     text-transform: uppercase;
@@ -482,6 +568,67 @@
     gap: 8px;
     min-height: 0;
     min-width: 0;
+  }
+  .roll-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .roll-tools {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .tool-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 3px 8px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .tool-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+  .tool-btn.on {
+    background: var(--c-accent);
+  }
+  .sep {
+    width: 2px;
+    height: 20px;
+    background: var(--ink);
+    margin: 0 2px;
+  }
+  .sq-action {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 3px 8px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .sq-action:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+  .sq-action:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+  .sq-action.del:not(:disabled):hover {
+    background: var(--c-ng);
+  }
+  .selected-badge {
+    border: 2px solid var(--ink);
+    background: var(--c-beep);
+    padding: 2px 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    box-shadow: 2px 2px 0 var(--ink);
   }
   .hint {
     font-size: 12px;

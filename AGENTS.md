@@ -12,6 +12,7 @@ PowerShell Music Maker: ピアノロールGUI(Tauri 2 + Svelte 5 + TS)から、B
 - 出力 `.ps1` は PowerShell 5.1 / 7 両対応。
 - 既存コメントは無関係なら消さない。
 - UIはネオブルータリズム(太い黒枠・ハードシャドウ・角丸0・原色)。詳細は docs/DESIGN.md の「UIデザイン」。色・枠・影はCSS変数に集約。
+- UIに絵文字は使用しない。アイコンはアイコンライブラリ(`@lucide/svelte`)を使用する。
 
 ## スキル
 - [.agents/skills/powershell-music-output/SKILL.md](.agents/skills/powershell-music-output/SKILL.md): PowerShell出力スクリプト生成の仕様と雛形

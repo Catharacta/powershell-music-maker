@@ -40,9 +40,19 @@ function demo(): Project {
   };
 }
 
+export interface ClipboardNote {
+  startTickOffset: number;
+  durationTick: number;
+  pitch: number;
+  velocity: number;
+}
+
 class AppState {
   project = $state<Project>(demo());
   activeTrackId = $state(1);
+  selectedNoteIds = $state<number[]>([]);
+  clipboard = $state<ClipboardNote[] | null>(null);
+  toolMode = $state<'draw' | 'select'>('draw');
   /** グリッド/新規ノート長(tick) */
   quant = $state(PPQ / 4);
   /** 表示倍率 (px / tick) デフォルト 0.2 (100%) */
@@ -57,6 +67,145 @@ class AppState {
   timeline = $derived(buildTimeline(this.project));
   script = $derived(generateScript(this.project, this.timeline, { visualizer: this.visualizer }));
   totalTicks = $derived(this.project.bars * BEATS_PER_BAR * PPQ);
+
+  setActiveTrack(id: number) {
+    if (this.activeTrackId !== id) {
+      this.activeTrackId = id;
+      this.clearSelection();
+    }
+  }
+
+  isNoteSelected(id: number): boolean {
+    return this.selectedNoteIds.includes(id);
+  }
+
+  selectNotes(ids: number[], additive = false) {
+    if (additive) {
+      const set = new Set([...this.selectedNoteIds, ...ids]);
+      this.selectedNoteIds = Array.from(set);
+    } else {
+      this.selectedNoteIds = [...ids];
+    }
+  }
+
+  deselectNotes(ids: number[]) {
+    const toRemove = new Set(ids);
+    this.selectedNoteIds = this.selectedNoteIds.filter((id) => !toRemove.has(id));
+  }
+
+  toggleNoteSelection(id: number) {
+    if (this.selectedNoteIds.includes(id)) {
+      this.selectedNoteIds = this.selectedNoteIds.filter((x) => x !== id);
+    } else {
+      this.selectedNoteIds = [...this.selectedNoteIds, id];
+    }
+  }
+
+  clearSelection() {
+    this.selectedNoteIds = [];
+  }
+
+  selectAll() {
+    this.selectedNoteIds = this.activeTrack.notes.map((n) => n.id);
+  }
+
+  deleteSelected() {
+    if (this.selectedNoteIds.length === 0) return;
+    const set = new Set(this.selectedNoteIds);
+    this.activeTrack.notes = this.activeTrack.notes.filter((n) => !set.has(n.id));
+    this.selectedNoteIds = [];
+  }
+
+  copySelected() {
+    const selected = this.activeTrack.notes.filter((n) => this.selectedNoteIds.includes(n.id));
+    if (selected.length === 0) return;
+    const minStart = Math.min(...selected.map((n) => n.startTick));
+    this.clipboard = selected.map((n) => ({
+      startTickOffset: n.startTick - minStart,
+      durationTick: n.durationTick,
+      pitch: n.pitch,
+      velocity: n.velocity
+    }));
+  }
+
+  paste(targetTick?: number) {
+    if (!this.clipboard || this.clipboard.length === 0) return;
+    let baseTick: number;
+    if (targetTick !== undefined) {
+      baseTick = targetTick;
+    } else {
+      if (this.selectedNoteIds.length > 0) {
+        const selected = this.activeTrack.notes.filter((n) => this.selectedNoteIds.includes(n.id));
+        const maxEnd = Math.max(...selected.map((n) => n.startTick + n.durationTick));
+        const q = Math.max(1, this.quant);
+        baseTick = Math.ceil(maxEnd / q) * q;
+      } else if (this.playheadMs >= 0) {
+        const phTick = (this.playheadMs * this.project.bpm * PPQ) / 60000;
+        const q = Math.max(1, this.quant);
+        baseTick = Math.floor(phTick / q) * q;
+      } else {
+        const maxEnd = this.activeTrack.notes.reduce((max, n) => Math.max(max, n.startTick + n.durationTick), 0);
+        const q = Math.max(1, this.quant);
+        baseTick = maxEnd > 0 ? Math.ceil(maxEnd / q) * q : 0;
+      }
+    }
+
+    const newNotes: import('./model').Note[] = this.clipboard.map((item) => ({
+      id: nextId(),
+      startTick: baseTick + item.startTickOffset,
+      durationTick: item.durationTick,
+      pitch: item.pitch,
+      velocity: item.velocity
+    }));
+
+    this.activeTrack.notes.push(...newNotes);
+    this.selectedNoteIds = newNotes.map((n) => n.id);
+  }
+
+  duplicateSelected() {
+    const selected = this.activeTrack.notes.filter((n) => this.selectedNoteIds.includes(n.id));
+    if (selected.length === 0) return;
+    const minStart = Math.min(...selected.map((n) => n.startTick));
+    const maxEnd = Math.max(...selected.map((n) => n.startTick + n.durationTick));
+    const q = Math.max(1, this.quant);
+    const rangeSpan = Math.max(q, Math.ceil((maxEnd - minStart) / q) * q);
+
+    const duplicated: import('./model').Note[] = selected.map((n) => ({
+      id: nextId(),
+      startTick: n.startTick + rangeSpan,
+      durationTick: n.durationTick,
+      pitch: n.pitch,
+      velocity: n.velocity
+    }));
+
+    this.activeTrack.notes.push(...duplicated);
+    this.selectedNoteIds = duplicated.map((n) => n.id);
+  }
+
+  nudgeSelected(deltaTick: number, deltaPitch: number) {
+    const selected = this.activeTrack.notes.filter((n) => this.selectedNoteIds.includes(n.id));
+    if (selected.length === 0) return;
+
+    let actualDeltaTick = deltaTick;
+    let actualDeltaPitch = deltaPitch;
+
+    for (const n of selected) {
+      if (n.startTick + actualDeltaTick < 0) {
+        actualDeltaTick = -n.startTick;
+      }
+      if (n.pitch + actualDeltaPitch < 36) {
+        actualDeltaPitch = 36 - n.pitch;
+      }
+      if (n.pitch + actualDeltaPitch > 96) {
+        actualDeltaPitch = 96 - n.pitch;
+      }
+    }
+
+    for (const n of selected) {
+      n.startTick = Math.max(0, n.startTick + actualDeltaTick);
+      n.pitch = Math.min(96, Math.max(36, n.pitch + actualDeltaPitch));
+    }
+  }
 
   zoomIn() {
     this.setPxPerTick(this.pxPerTick * 1.25);
@@ -90,17 +239,22 @@ class AppState {
       notes: []
     };
     this.project.tracks.push(t);
-    this.activeTrackId = t.id;
+    this.setActiveTrack(t.id);
   }
 
   removeTrack(id: number) {
     if (this.project.tracks.length <= 1) return;
     this.project.tracks = this.project.tracks.filter((t) => t.id !== id);
-    if (this.activeTrackId === id) this.activeTrackId = this.project.tracks[0].id;
+    if (this.activeTrackId === id) {
+      this.setActiveTrack(this.project.tracks[0].id);
+    } else {
+      this.clearSelection();
+    }
   }
 
   loadMidiAsNew(info: import('./midi').ParsedMidiInfo) {
     this.stop();
+    this.clearSelection();
     const tracks: Track[] = info.parsedTracks.map((pt) => ({
       id: nextId(),
       name: pt.name,
@@ -131,11 +285,12 @@ class AppState {
         }
       ]
     };
-    this.activeTrackId = this.project.tracks[0].id;
+    this.setActiveTrack(this.project.tracks[0].id);
   }
 
   appendMidi(info: import('./midi').ParsedMidiInfo) {
     this.stop();
+    this.clearSelection();
     const used = new Set(this.project.tracks.map((t) => t.channel));
     const newTracks: Track[] = info.parsedTracks.map((pt) => {
       let ch = pt.channel;
@@ -167,7 +322,7 @@ class AppState {
     if (newTracks.length > 0) {
       this.project.tracks.push(...newTracks);
       this.project.bars = Math.max(this.project.bars, info.bars);
-      this.activeTrackId = newTracks[0].id;
+      this.setActiveTrack(newTracks[0].id);
     }
   }
 
