@@ -48,13 +48,27 @@ $sw = [Diagnostics.Stopwatch]::StartNew()
 - Beepテスト: `std::process::Command` で powershell/pwsh を起動し結果を返すTauri command。
 - 再生は停止可能に(キャンセルトークン、停止時 All Notes Off)。
 
-## ディレクトリ案
+## ディレクトリ構成
 ```
-src/            Svelte UI (lib/PianoRoll, lib/store, lib/generator, lib/settings, lib/i18n, lib/licenses, lib/SettingsModal)
-src-tauri/      Rust (commands: play, stop, test_beep, test_gs, list_midi_devices)
-docs/           ドキュメント
-.agents/skills/ エージェント用スキル
+crates/
+  psmusic-core/  データモデル、タイムライン生成、PSスクリプト生成、MIDI処理、再生エンジン(WinMM/Beep)
+  psmusic-cli/   CLI (psmusic.exe) & MCP サーバー (stdio JSON-RPC)
+src/             Svelte UI (lib/PianoRoll, lib/store, lib/generator, lib/settings, lib/i18n, lib/licenses, lib/SettingsModal)
+src-tauri/       Rust Tauri GUI (powershell-music-maker.exe)
+docs/            ドキュメント
+.agents/skills/  エージェント用スキル
 ```
+
+## CLI & MCP 連携
+- **CLI (`psmusic.exe`)**:
+  - `generate`: Project JSONから `.ps1` スクリプトを生成（パイプライン・標準入出力対応）。
+  - `play`: Project JSON または MIDI ファイルの即座ローカル試聴。
+  - `test`: Beep (powershell/pwsh) および GS Wavetable の実機テスト。
+  - `midi-import` / `midi-export`: MIDIファイルの相互変換。
+  - `init`: テンプレートJSON作成。
+- **MCP (Model Context Protocol)**:
+  - `psmusic mcp` で stdio JSON-RPC サーバーとして起動。
+  - AIエージェント向けに対話的作曲ツール群（`psmusic_create_project`, `psmusic_add_track`, `psmusic_add_notes`, `psmusic_get_project`, `psmusic_generate_script`, `psmusic_play`, `psmusic_stop` 等）を提供。
 
 ## マイルストーン
 1. Tauri+Svelte雛形、ピアノロール編集
