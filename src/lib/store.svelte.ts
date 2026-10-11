@@ -66,8 +66,14 @@ class AppState {
   selectedNoteIds = $state<number[]>([]);
   clipboard = $state<ClipboardNote[] | null>(null);
   toolMode = $state<'draw' | 'select'>('draw');
-  /** グリッド/新規ノート長(tick) */
+  /** グリッド(tick) */
   quant = $state(PPQ / 4);
+  /** 新規ノート長設定 ('grid' または tick数) */
+  noteLengthChoice = $state<'grid' | number>('grid');
+
+  effectiveNoteLength = $derived(
+    this.noteLengthChoice === 'grid' ? Math.max(1, this.quant) : this.noteLengthChoice
+  );
   /** 表示倍率 (px / tick) デフォルト 0.2 (100%) */
   pxPerTick = $state(0.2);
   playing = $state(false);
@@ -226,6 +232,27 @@ class AppState {
     for (const n of selected) {
       n.startTick = Math.max(0, n.startTick + actualDeltaTick);
       n.pitch = Math.min(96, Math.max(36, n.pitch + actualDeltaPitch));
+    }
+  }
+
+  setNoteLength(choice: 'grid' | number) {
+    this.noteLengthChoice = choice;
+    if (this.selectedNoteIds.length > 0) {
+      const len = this.effectiveNoteLength;
+      for (const n of this.activeTrack.notes) {
+        if (this.selectedNoteIds.includes(n.id)) {
+          n.durationTick = Math.max(1, len);
+        }
+      }
+    }
+  }
+
+  resizeSelected(deltaTick: number) {
+    const selected = this.activeTrack.notes.filter((n) => this.selectedNoteIds.includes(n.id));
+    if (selected.length === 0) return;
+    const minLen = Math.max(1, this.quant > 1 ? this.quant : 1);
+    for (const n of selected) {
+      n.durationTick = Math.max(minLen, n.durationTick + deltaTick);
     }
   }
 

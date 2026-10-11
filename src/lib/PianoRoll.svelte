@@ -115,11 +115,12 @@
   }
 
   $effect(() => {
-    // 依存: プロジェクト・グリッド・再生位置・アクティブトラック・表示倍率・選択ノート
+    // 依存: プロジェクト・グリッド・再生位置・アクティブトラック・表示倍率・選択ノート・ノート長
     void width;
     void app.pxPerTick;
     void app.selectedNoteIds;
     void app.quant;
+    void app.effectiveNoteLength;
     draw();
   });
 
@@ -196,11 +197,19 @@
         draw();
       } else if (e.key === 'ArrowLeft') {
         e.preventDefault();
-        app.nudgeSelected(-app.quant, 0);
+        if (e.shiftKey) {
+          app.resizeSelected(-Math.max(1, app.quant));
+        } else {
+          app.nudgeSelected(-app.quant, 0);
+        }
         draw();
       } else if (e.key === 'ArrowRight') {
         e.preventDefault();
-        app.nudgeSelected(app.quant, 0);
+        if (e.shiftKey) {
+          app.resizeSelected(Math.max(1, app.quant));
+        } else {
+          app.nudgeSelected(app.quant, 0);
+        }
         draw();
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
@@ -242,6 +251,8 @@
     | {
         mode: 'create';
         note: Note;
+        initialDuration: number;
+        startX: number;
       }
     | {
         mode: 'box-select';
@@ -359,7 +370,7 @@
         app.clearSelection();
         const pitch = PMAX - Math.floor(y / ROW);
         if (pitch < PMIN || pitch > PMAX) return;
-        const durationTick = Math.max(1, app.quant);
+        const durationTick = Math.max(1, app.effectiveNoteLength);
         const note: Note = {
           id: nextId(),
           startTick: snap(x / PX),
@@ -371,7 +382,9 @@
         app.selectNotes([note.id]);
         drag = {
           mode: 'create',
-          note
+          note,
+          initialDuration: durationTick,
+          startX: x
         };
       }
     }
@@ -420,7 +433,11 @@
     } else if (drag.mode === 'create') {
       const q = Math.max(1, app.quant);
       const end = Math.ceil((x / PX) / q) * q;
-      drag.note.durationTick = Math.max(q, end - drag.note.startTick);
+      if (x - drag.startX > 5) {
+        drag.note.durationTick = Math.max(drag.initialDuration, end - drag.note.startTick);
+      } else {
+        drag.note.durationTick = drag.initialDuration;
+      }
     } else if (drag.mode === 'box-select') {
       drag.currentX = x;
       drag.currentY = y;

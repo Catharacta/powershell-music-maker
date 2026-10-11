@@ -105,6 +105,16 @@
     [1, 'OFF']
   ] as const;
 
+  const noteLengths = [
+    [PPQ * 4, '1/1'],
+    [PPQ * 2, '1/2'],
+    [PPQ, '1/4'],
+    [PPQ / 2, '1/8'],
+    [PPQ / 4, '1/16'],
+    [PPQ / 8, '1/32'],
+    [PPQ / 16, '1/64']
+  ] as const;
+
   $effect(() => {
     const handleGlobalKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -178,6 +188,19 @@
       >Grid
       <select bind:value={app.quant}>
         {#each quants as [v, l] (v)}<option value={v}>{l}</option>{/each}
+      </select></label
+    >
+    <label
+      >Length
+      <select
+        value={app.noteLengthChoice}
+        onchange={(e) => {
+          const val = e.currentTarget.value;
+          app.setNoteLength(val === 'grid' ? 'grid' : Number(val));
+        }}
+      >
+        <option value="grid">Grid</option>
+        {#each noteLengths as [v, l] (v)}<option value={v}>{l}</option>{/each}
       </select></label
     >
     <label class="zoom-ctrl"
@@ -318,7 +341,7 @@
       </div>
     </div>
     <div class="hint">
-      Shift+ドラッグ: 範囲選択 | ドラッグ: 移動 | Alt+ドラッグ: 複製移動 | 矢印キー: 微移動 | 右クリック: 削除 | Ctrl+C/V/D: コピペ・複製
+      Shift+ドラッグ: 範囲選択 | ドラッグ: 移動 | Alt+ドラッグ: 複製移動 | 矢印キー: 移動 | Shift+←/→: 長さ伸縮 | 右クリック: 削除 | Ctrl+C/V/D: コピペ・複製
     </div>
     <div class="roll"><PianoRoll /></div>
     {#if app.status}<div class="result ng">{app.status}</div>{/if}
