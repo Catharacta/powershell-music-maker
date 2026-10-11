@@ -304,7 +304,7 @@
 
               <div class="app-card">
                 <div class="app-card-title">{t('app_title')}</div>
-                <div class="app-card-version">{t('settings_version')}: 0.1.0</div>
+                <div class="app-card-version">{t('settings_version')}: 1.0.0</div>
                 <p class="app-card-desc">{t('settings_app_desc')}</p>
                 <a
                   href="https://github.com/Yuta0401/powershell-music-maker"
