@@ -25,8 +25,6 @@ jobs:
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
 
       - name: Install dependencies
         run: npm ci
@@ -53,4 +51,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload "${{ github.ref_name }}" src-tauri/target/release/powershell-music-maker.exe --clobber
+          EXE_PATH=""
+          if [ -f "target/release/powershell-music-maker.exe" ]; then
+            EXE_PATH="target/release/powershell-music-maker.exe"
+          elif [ -f "src-tauri/target/release/powershell-music-maker.exe" ]; then
+            EXE_PATH="src-tauri/target/release/powershell-music-maker.exe"
+          fi
+
+          if [ -n "$EXE_PATH" ]; then
+            gh release upload "${{ github.ref_name }}" "$EXE_PATH" --clobber
+          else
+            echo "::error::powershell-music-maker.exe was not found in target/release or src-tauri/target/release"
+            exit 1
+          fi
