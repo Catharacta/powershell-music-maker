@@ -16,7 +16,10 @@
     ClipboardPaste,
     CopyPlus,
     Trash2,
-    X
+    X,
+    FilePlus,
+    FolderOpen,
+    Save
   } from '@lucide/svelte';
 
   const win = getCurrentWindow();
@@ -101,18 +104,70 @@
     [PPQ / 32, '1/128'],
     [1, 'OFF']
   ] as const;
+
+  $effect(() => {
+    const handleGlobalKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) {
+        return;
+      }
+
+      if (e.ctrlKey || e.metaKey) {
+        if ((e.key === 's' || e.key === 'S') && e.shiftKey) {
+          e.preventDefault();
+          app.saveProjectAs();
+        } else if (e.key === 's' || e.key === 'S') {
+          e.preventDefault();
+          app.saveProject();
+        } else if (e.key === 'o' || e.key === 'O') {
+          e.preventDefault();
+          app.openProjectDialog();
+        } else if (e.key === 'n' || e.key === 'N') {
+          e.preventDefault();
+          app.newProject();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKey);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKey);
+    };
+  });
 </script>
 
 <div class="app">
   <div class="titlebar" data-tauri-drag-region>
     <span class="logo" data-tauri-drag-region><img src="/app-icon.png" alt="App Icon" class="titlebar-icon-img" data-tauri-drag-region /></span>
-    <span class="title" data-tauri-drag-region>PowerShell Music Maker</span>
+    <span class="title" data-tauri-drag-region>
+      PowerShell Music Maker
+      <span class="project-tag" data-tauri-drag-region>— {app.projectName}.psmm</span>
+    </span>
     <span class="spacer" data-tauri-drag-region></span>
     <button class="wbtn min" onclick={() => win.minimize()} title="Minimize">_</button>
     <button class="wbtn max" onclick={() => win.toggleMaximize()} title="Maximize">□</button>
     <button class="wbtn close" onclick={() => win.close()} title="Close">×</button>
   </div>
   <header>
+    <div class="header-group">
+      <button class="icon-text-btn" onclick={() => app.newProject()} title="新規作成 (Ctrl+N)">
+        <FilePlus size={14} strokeWidth={2.5} />
+        <span>New</span>
+      </button>
+      <button class="icon-text-btn" onclick={() => app.openProjectDialog()} title="プロジェクトを開く (Ctrl+O)">
+        <FolderOpen size={14} strokeWidth={2.5} />
+        <span>Open</span>
+      </button>
+      <button class="icon-text-btn" onclick={() => app.saveProject()} title="上書き保存 (Ctrl+S)">
+        <Save size={14} strokeWidth={2.5} />
+        <span>Save</span>
+      </button>
+      <button class="icon-text-btn" onclick={() => app.saveProjectAs()} title="名前を付けて保存 (Ctrl+Shift+S)">
+        <Save size={14} strokeWidth={2.5} />
+        <span>Save As</span>
+      </button>
+    </div>
+    <span class="header-sep"></span>
     <button onclick={() => app.play()} disabled={app.playing}>Play</button>
     <button onclick={() => app.stop()}>Stop</button>
     <button onclick={() => (showTest = true)}>Test</button>
@@ -372,6 +427,24 @@
     border-bottom: var(--border);
     flex-wrap: wrap;
   }
+  .header-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .icon-text-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  .header-sep {
+    width: 2px;
+    height: 24px;
+    background: var(--ink);
+    margin: 0 4px;
+  }
   header label {
     font-family: var(--font-head);
     text-transform: uppercase;
@@ -515,6 +588,17 @@
     letter-spacing: 0.08em;
     align-self: center;
     padding-left: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .project-tag {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: normal;
+    color: var(--c-beep);
+    letter-spacing: normal;
+    text-transform: none;
   }
   .wbtn {
     width: 52px;

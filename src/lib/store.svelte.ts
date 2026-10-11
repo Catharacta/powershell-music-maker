@@ -1,5 +1,15 @@
 import { invoke } from '@tauri-apps/api/core';
-import { BEATS_PER_BAR, PPQ, type Output, type Project, type Track } from './model';
+import { save as dialogSave, open as dialogOpen } from '@tauri-apps/plugin-dialog';
+import { readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
+import {
+  BEATS_PER_BAR,
+  PPQ,
+  type Output,
+  type Project,
+  type Track,
+  type ProjectFile,
+  validateProjectFile
+} from './model';
 import { buildTimeline } from './timeline';
 import { generateScript } from './generator';
 
@@ -13,6 +23,9 @@ export interface TestResult {
 
 let seq = 100;
 export const nextId = () => ++seq;
+export const setNextId = (id: number) => {
+  if (id > seq) seq = id;
+};
 
 function demo(): Project {
   const q = PPQ / 2;
@@ -63,10 +76,19 @@ class AppState {
   visualizer = $state(true);
   status = $state('');
 
+  currentFilePath = $state<string | null>(null);
+  isDirty = $state(false);
+
   activeTrack = $derived(this.project.tracks.find((t) => t.id === this.activeTrackId) ?? this.project.tracks[0]);
   timeline = $derived(buildTimeline(this.project));
   script = $derived(generateScript(this.project, this.timeline, { visualizer: this.visualizer }));
   totalTicks = $derived(this.project.bars * BEATS_PER_BAR * PPQ);
+
+  projectName = $derived(
+    this.currentFilePath
+      ? this.currentFilePath.split(/[\\/]/).pop()?.replace(/\.psmm$/i, '') || 'Untitled'
+      : 'Untitled'
+  );
 
   setActiveTrack(id: number) {
     if (this.activeTrackId !== id) {
@@ -359,6 +381,141 @@ class AppState {
     this.playing = false;
     this.playheadMs = -1;
     invoke('stop').catch(() => {});
+  }
+
+  newProject() {
+    this.stop();
+    this.clearSelection();
+    this.currentFilePath = null;
+    this.project = {
+      bpm: 120,
+      bars: 8,
+      tracks: [
+        {
+          id: nextId(),
+          name: 'TRACK 1',
+          output: 'gs',
+          channel: 0,
+          program: 0,
+          volume: 100,
+          mute: false,
+          notes: []
+        }
+      ]
+    };
+    this.setActiveTrack(this.project.tracks[0].id);
+    this.status = '新規プロジェクトを作成しました';
+  }
+
+  loadProject(newProject: Project, filePath: string | null = null) {
+    this.stop();
+    this.clearSelection();
+    this.currentFilePath = filePath;
+
+    let maxId = 100;
+    for (const t of newProject.tracks) {
+      if (t.id > maxId) maxId = t.id;
+      for (const n of t.notes) {
+        if (n.id > maxId) maxId = n.id;
+      }
+    }
+    setNextId(maxId);
+
+    this.project = newProject;
+    const initialTrack = this.project.tracks[0] ?? {
+      id: nextId(),
+      name: 'TRACK 1',
+      output: 'gs',
+      channel: 0,
+      program: 0,
+      volume: 100,
+      mute: false,
+      notes: []
+    };
+    if (this.project.tracks.length === 0) {
+      this.project.tracks.push(initialTrack);
+    }
+    this.setActiveTrack(initialTrack.id);
+  }
+
+  async openProjectDialog() {
+    try {
+      const selected = await dialogOpen({
+        multiple: false,
+        directory: false,
+        filters: [{ name: 'PowerShell Music Maker Project', extensions: ['psmm'] }]
+      });
+      if (!selected || typeof selected !== 'string') return;
+      await this.openProjectFile(selected);
+    } catch (e) {
+      console.error('Failed to open project dialog:', e);
+      this.status = `開くのに失敗しました: ${e}`;
+      alert(`プロジェクトを開けませんでした: ${e}`);
+    }
+  }
+
+  async openProjectFile(filePath: string) {
+    try {
+      const text = await readTextFile(filePath);
+      const parsed = JSON.parse(text);
+      const proj = validateProjectFile(parsed);
+      if (!proj) {
+        throw new Error('プロジェクトファイルの形式が無効です');
+      }
+      this.loadProject(proj, filePath);
+      this.status = `プロジェクトを開きました: ${this.projectName}`;
+    } catch (e) {
+      console.error('Failed to load project:', e);
+      this.status = `プロジェクトの読み込みに失敗しました: ${e}`;
+      alert(`プロジェクトの読み込みに失敗しました: ${e}`);
+    }
+  }
+
+  async saveProject(): Promise<boolean> {
+    if (!this.currentFilePath) {
+      return this.saveProjectAs();
+    }
+    return this.writeProjectToFile(this.currentFilePath);
+  }
+
+  async saveProjectAs(): Promise<boolean> {
+    try {
+      const defaultName = (this.projectName || 'project') + '.psmm';
+      const filePath = await dialogSave({
+        filters: [{ name: 'PowerShell Music Maker Project', extensions: ['psmm'] }],
+        defaultPath: defaultName
+      });
+      if (!filePath) return false;
+      const ok = await this.writeProjectToFile(filePath);
+      if (ok) {
+        this.currentFilePath = filePath;
+      }
+      return ok;
+    } catch (e) {
+      console.error('Failed to save project as:', e);
+      this.status = `名前を付けて保存に失敗しました: ${e}`;
+      alert(`名前を付けて保存に失敗しました: ${e}`);
+      return false;
+    }
+  }
+
+  private async writeProjectToFile(filePath: string): Promise<boolean> {
+    try {
+      const fileData: ProjectFile = {
+        app: 'powershell-music-maker',
+        version: 1,
+        project: this.project
+      };
+      const jsonStr = JSON.stringify(fileData, null, 2);
+      await writeTextFile(filePath, jsonStr);
+      this.status = `プロジェクトを保存しました: ${filePath.split(/[\\/]/).pop()}`;
+      return true;
+    } catch (e) {
+      console.error('Failed to write project file:', e);
+      this.status = `保存に失敗しました: ${e}`;
+      alert(`プロジェクトの保存に失敗しました: ${e}`);
+      return false;
+    }
   }
 
   testBeep(shell: 'powershell' | 'pwsh') {
