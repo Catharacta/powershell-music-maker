@@ -3,6 +3,8 @@
   import { t } from './i18n';
   import { OSS_LICENSES } from './licenses';
   import { PPQ } from './model';
+  import { tooltip } from './tooltip';
+  import Select from './Select.svelte';
   import {
     X,
     Globe,
@@ -45,6 +47,22 @@
     { label: t('quant_half_beat'), value: PPQ / 2 },
     { label: t('quant_quarter_beat'), value: PPQ / 4 },
     { label: t('quant_eighth_beat'), value: PPQ / 8 }
+  ]);
+
+  const defaultOutputOptions = $derived([
+    { label: t('track_gs_desc'), value: 'gs' },
+    { label: t('track_beep_desc'), value: 'beep' }
+  ]);
+
+  const preferredPsOptions = $derived([
+    { label: t('settings_ps_auto'), value: 'auto' },
+    { label: t('settings_ps_powershell'), value: 'powershell' },
+    { label: t('settings_ps_pwsh'), value: 'pwsh' }
+  ]);
+
+  const beepOverlapOptions = $derived([
+    { label: t('settings_beep_latest'), value: 'latest' },
+    { label: t('settings_beep_ignore'), value: 'ignore' }
   ]);
 </script>
 
@@ -179,27 +197,22 @@
 
               <div class="setting-item">
                 <label class="setting-label" for="default-quant">{t('settings_default_quant')}</label>
-                <select
+                <Select
                   id="default-quant"
                   bind:value={settings.editor.defaultQuant}
-                  class="select-input"
-                >
-                  {#each quantOptions as opt}
-                    <option value={opt.value}>{opt.label}</option>
-                  {/each}
-                </select>
+                  options={quantOptions}
+                  style="max-width: 380px; width: 100%;"
+                />
               </div>
 
               <div class="setting-item">
                 <label class="setting-label" for="default-output">{t('settings_default_output')}</label>
-                <select
+                <Select
                   id="default-output"
                   bind:value={settings.editor.defaultOutput}
-                  class="select-input"
-                >
-                  <option value="gs">{t('track_gs_desc')}</option>
-                  <option value="beep">{t('track_beep_desc')}</option>
-                </select>
+                  options={defaultOutputOptions}
+                  style="max-width: 380px; width: 100%;"
+                />
               </div>
 
               <div class="setting-item">
@@ -234,28 +247,23 @@
 
               <div class="setting-item">
                 <label class="setting-label" for="preferred-ps">{t('settings_preferred_ps')}</label>
-                <select
+                <Select
                   id="preferred-ps"
                   bind:value={settings.script.preferredPs}
-                  class="select-input"
-                >
-                  <option value="auto">{t('settings_ps_auto')}</option>
-                  <option value="powershell">{t('settings_ps_powershell')}</option>
-                  <option value="pwsh">{t('settings_ps_pwsh')}</option>
-                </select>
+                  options={preferredPsOptions}
+                  style="max-width: 380px; width: 100%;"
+                />
               </div>
 
               <div class="setting-item">
                 <label class="setting-label" for="beep-overlap">{t('settings_beep_overlap')}</label>
                 <p class="setting-desc">{t('settings_beep_overlap_desc')}</p>
-                <select
+                <Select
                   id="beep-overlap"
                   bind:value={settings.script.beepOverlap}
-                  class="select-input"
-                >
-                  <option value="latest">{t('settings_beep_latest')}</option>
-                  <option value="ignore">{t('settings_beep_ignore')}</option>
-                </select>
+                  options={beepOverlapOptions}
+                  style="max-width: 380px; width: 100%;"
+                />
               </div>
             </section>
           {:else if activeTab === 'about'}
@@ -296,7 +304,7 @@
                             target="_blank"
                             rel="noreferrer"
                             class="lib-link"
-                            title={lib.url}
+                            use:tooltip={lib.url}
                           >
                             <ExternalLink size={14} strokeWidth={2.5} />
                           </a>

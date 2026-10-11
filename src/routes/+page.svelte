@@ -26,6 +26,8 @@
   } from '@lucide/svelte';
   import SettingsModal from '$lib/SettingsModal.svelte';
   import { t } from '$lib/i18n';
+  import { tooltip } from '$lib/tooltip';
+  import Select from '$lib/Select.svelte';
 
   const win = getCurrentWindow();
   let showTest = $state(false);
@@ -133,6 +135,10 @@
     [1, 'OFF']
   ] as const;
 
+  const quantSelectOptions = $derived(
+    quants.map(([v, l]) => ({ value: v, label: l }))
+  );
+
   const noteLengths = [
     [PPQ * 4, '1/1'],
     [PPQ * 2, '1/2'],
@@ -142,6 +148,21 @@
     [PPQ / 8, '1/32'],
     [PPQ / 16, '1/64']
   ] as const;
+
+  const noteLengthSelectOptions = $derived([
+    { value: 'grid', label: t('note_len_grid') },
+    ...noteLengths.map(([v, l]) => ({ value: v, label: l }))
+  ]);
+
+  const gmSelectOptions = GM_PROGRAMS.map((n, i) => ({
+    value: i,
+    label: `${i} ${n}`
+  }));
+
+  const outputSelectOptions = [
+    { value: 'beep', label: 'Beep' },
+    { value: 'gs', label: 'GS Wavetable' }
+  ];
 
   $effect(() => {
     const handleGlobalKey = (e: KeyboardEvent) => {
@@ -182,26 +203,26 @@
       <span class="project-tag" data-tauri-drag-region>— {app.projectName}.psmm</span>
     </span>
     <span class="spacer" data-tauri-drag-region></span>
-    <button class="wbtn min" onclick={() => win.minimize()} title="Minimize">_</button>
-    <button class="wbtn max" onclick={() => win.toggleMaximize()} title="Maximize">□</button>
-    <button class="wbtn close" onclick={() => win.close()} title="Close">×</button>
+    <button class="wbtn min" onclick={() => win.minimize()} use:tooltip={'Minimize'}>_</button>
+    <button class="wbtn max" onclick={() => win.toggleMaximize()} use:tooltip={'Maximize'}>□</button>
+    <button class="wbtn close" onclick={() => win.close()} use:tooltip={'Close'}>×</button>
   </div>
   <header>
     <div class="header-row">
       <div class="header-group">
-        <button class="icon-text-btn" onclick={() => app.newProject()} title={t('tooltip_new')}>
+        <button class="icon-text-btn" onclick={() => app.newProject()} use:tooltip={t('tooltip_new')}>
           <FilePlus size={14} strokeWidth={2.5} />
           <span>{t('file_new')}</span>
         </button>
-        <button class="icon-text-btn" onclick={() => app.openProjectDialog()} title={t('tooltip_open')}>
+        <button class="icon-text-btn" onclick={() => app.openProjectDialog()} use:tooltip={t('tooltip_open')}>
           <FolderOpen size={14} strokeWidth={2.5} />
           <span>{t('file_open')}</span>
         </button>
-        <button class="icon-text-btn" onclick={() => app.saveProject()} title={t('tooltip_save')}>
+        <button class="icon-text-btn" onclick={() => app.saveProject()} use:tooltip={t('tooltip_save')}>
           <Save size={14} strokeWidth={2.5} />
           <span>{t('file_save')}</span>
         </button>
-        <button class="icon-text-btn" onclick={() => app.saveProjectAs()} title={t('tooltip_save_as')}>
+        <button class="icon-text-btn" onclick={() => app.saveProjectAs()} use:tooltip={t('tooltip_save_as')}>
           <Save size={14} strokeWidth={2.5} />
           <span>{t('file_save_as')}</span>
         </button>
@@ -220,14 +241,14 @@
         bind:this={midiFileInput}
         onchange={handleMidiFileChange}
       />
-      <button class="icon-text-btn" onclick={triggerMidiFile} title={t('tooltip_import_midi')}>
+      <button class="icon-text-btn" onclick={triggerMidiFile} use:tooltip={t('tooltip_import_midi')}>
         <Upload size={14} strokeWidth={2.5} />
         <span>{t('file_import_midi')}</span>
       </button>
       <button
         class="icon-text-btn export-btn"
         onclick={() => (app.showScript = !app.showScript)}
-        title={t('tooltip_export_script')}
+        use:tooltip={t('tooltip_export_script')}
       >
         <FileCode size={14} strokeWidth={2.5} />
         <span>{t('export_script')}</span>
@@ -235,7 +256,7 @@
       <button
         class="icon-text-btn settings-btn"
         onclick={() => (showSettings = true)}
-        title={t('settings')}
+        use:tooltip={t('settings')}
       >
         <Settings size={14} strokeWidth={2.5} />
         <span>{t('settings')}</span>
@@ -248,40 +269,40 @@
       >
       <label
         >{t('grid')}
-        <select bind:value={app.quant}>
-          {#each quants as [v, l] (v)}<option value={v}>{l}</option>{/each}
-        </select></label
-      >
+        <Select
+          bind:value={app.quant}
+          options={quantSelectOptions}
+          style="min-width: 90px;"
+        />
+      </label>
       <label
         >{t('note_length')}
-        <select
+        <Select
           value={app.noteLengthChoice}
-          onchange={(e) => {
-            const val = e.currentTarget.value;
+          options={noteLengthSelectOptions}
+          onchange={(val) => {
             app.setNoteLength(val === 'grid' ? 'grid' : Number(val));
           }}
-        >
-          <option value="grid">{t('note_len_grid')}</option>
-          {#each noteLengths as [v, l] (v)}<option value={v}>{l}</option>{/each}
-        </select></label
-      >
+          style="min-width: 100px;"
+        />
+      </label>
       <span class="header-sep"></span>
       <label
         >{t('bars')} <input type="number" min="1" max="64" bind:value={app.project.bars} style="width:70px" /></label
       >
       <label class="zoom-ctrl"
         >{t('zoom')}
-        <button type="button" class="sq-btn" onclick={() => app.zoomOut()} title="Zoom Out (-)">-</button>
-        <button type="button" class="zoom-val" onclick={() => app.zoomReset()} title="Reset Zoom (100%)">
+        <button type="button" class="sq-btn" onclick={() => app.zoomOut()} use:tooltip={'Zoom Out (-)'}>-</button>
+        <button type="button" class="zoom-val" onclick={() => app.zoomReset()} use:tooltip={'Reset Zoom (100%)'}>
           {Math.round((app.pxPerTick / 0.2) * 100)}%
         </button>
-        <button type="button" class="sq-btn" onclick={() => app.zoomIn()} title="Zoom In (+)">+</button>
+        <button type="button" class="sq-btn" onclick={() => app.zoomIn()} use:tooltip={'Zoom In (+)'}>+</button>
       </label>
 
       <span class="spacer"></span>
 
       {#if app.timeline.beepConflicts > 0}
-        <span class="result ng" title={t('beep_conflict_tooltip')}
+        <span class="result ng" use:tooltip={t('beep_conflict_tooltip')}
           >{t('beep_conflicts')} {app.timeline.beepConflicts}</span
         >
       {/if}
@@ -304,19 +325,26 @@
           <span class="tag {tr.output}">{tr.output === 'beep' ? 'BEEP' : 'GS'}</span>
         </div>
         <div class="row">
-          <button class="sq" class:on={tr.mute} onclick={() => (tr.mute = !tr.mute)} title={t('tooltip_mute')}>M</button>
-          <select bind:value={tr.output}>
-            <option value="beep">Beep</option>
-            <option value="gs">GS Wavetable</option>
-          </select>
-          <button class="sq" onclick={() => app.removeTrack(tr.id)} title={t('action_delete')}><X size={14} strokeWidth={2.5} /></button>
+          <button class="sq" class:on={tr.mute} onclick={() => (tr.mute = !tr.mute)} use:tooltip={t('tooltip_mute')}>M</button>
+          <div style="flex: 1; min-width: 0;">
+            <Select
+              bind:value={tr.output}
+              options={outputSelectOptions}
+              style="width: 100%;"
+            />
+          </div>
+          <button class="sq" onclick={() => app.removeTrack(tr.id)} use:tooltip={t('action_delete')}><X size={14} strokeWidth={2.5} /></button>
         </div>
         {#if tr.output === 'gs'}
           <div class="row">
-            <select bind:value={tr.program}>
-              {#each GM_PROGRAMS as n, i (i)}<option value={i}>{i} {n}</option>{/each}
-            </select>
-            <input type="number" min="0" max="15" bind:value={tr.channel} style="width:60px" title={t('tooltip_channel')} />
+            <div style="flex: 1; min-width: 0;">
+              <Select
+                bind:value={tr.program}
+                options={gmSelectOptions}
+                style="width: 100%;"
+              />
+            </div>
+            <input type="number" min="0" max="15" bind:value={tr.channel} style="width:60px" use:tooltip={t('tooltip_channel')} />
           </div>
         {/if}
         <div class="row">Vol <input type="range" min="0" max="100" bind:value={tr.volume} style="flex:1;min-width:0" /></div>
@@ -337,7 +365,7 @@
           class="tool-btn"
           class:on={app.toolMode === 'draw'}
           onclick={() => (app.toolMode = 'draw')}
-          title={t('tooltip_draw')}
+          use:tooltip={t('tooltip_draw')}
         >
           <Pencil size={13} strokeWidth={2.5} />
           <span>{t('tool_draw')}</span>
@@ -346,13 +374,13 @@
           class="tool-btn"
           class:on={app.toolMode === 'select'}
           onclick={() => (app.toolMode = 'select')}
-          title={t('tooltip_select')}
+          use:tooltip={t('tooltip_select')}
         >
           <BoxSelect size={13} strokeWidth={2.5} />
           <span>{t('tool_select')}</span>
         </button>
         <span class="sep"></span>
-        <button class="sq-action" onclick={() => app.selectAll()} title={t('tooltip_select_all')}>
+        <button class="sq-action" onclick={() => app.selectAll()} use:tooltip={t('tooltip_select_all')}>
           <CheckSquare size={12} strokeWidth={2.5} />
           <span>{t('action_select_all')}</span>
         </button>
@@ -360,7 +388,7 @@
           class="sq-action"
           onclick={() => app.copySelected()}
           disabled={app.selectedNoteIds.length === 0}
-          title={t('tooltip_copy')}
+          use:tooltip={t('tooltip_copy')}
         >
           <Copy size={12} strokeWidth={2.5} />
           <span>{t('action_copy')}</span>
@@ -369,7 +397,7 @@
           class="sq-action"
           onclick={() => app.paste()}
           disabled={!app.clipboard || app.clipboard.length === 0}
-          title={t('tooltip_paste')}
+          use:tooltip={t('tooltip_paste')}
         >
           <ClipboardPaste size={12} strokeWidth={2.5} />
           <span>{t('action_paste')}</span>
@@ -378,7 +406,7 @@
           class="sq-action"
           onclick={() => app.duplicateSelected()}
           disabled={app.selectedNoteIds.length === 0}
-          title={t('tooltip_duplicate')}
+          use:tooltip={t('tooltip_duplicate')}
         >
           <CopyPlus size={12} strokeWidth={2.5} />
           <span>{t('action_duplicate')}</span>
@@ -387,7 +415,7 @@
           class="sq-action del"
           onclick={() => app.deleteSelected()}
           disabled={app.selectedNoteIds.length === 0}
-          title={t('tooltip_delete')}
+          use:tooltip={t('tooltip_delete')}
         >
           <Trash2 size={12} strokeWidth={2.5} />
           <span>{t('action_delete')}</span>
@@ -410,7 +438,7 @@
         <div class="row script-header">
           <h2>music.ps1</h2>
           <span class="spacer"></span>
-          <button class="sq-btn" onclick={() => (app.showScript = false)} title={t('script_modal_close')}>×</button>
+          <button class="sq-btn" onclick={() => (app.showScript = false)} use:tooltip={t('script_modal_close')}>×</button>
         </div>
         <div class="row script-toolbar">
           <label class="title-opt">
