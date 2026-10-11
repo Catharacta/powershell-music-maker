@@ -22,7 +22,9 @@
     Save,
     Upload,
     FileCode,
-    Settings
+    Settings,
+    AlertTriangle,
+    Wand2
   } from '@lucide/svelte';
   import SettingsModal from '$lib/SettingsModal.svelte';
   import { t } from '$lib/i18n';
@@ -40,6 +42,17 @@
 
   let midiFileInput: HTMLInputElement | undefined = $state();
   let pendingMidi = $state<ParsedMidiInfo | null>(null);
+
+  const hasBeepTrack = $derived(app.project.tracks.some((t) => t.output === 'beep'));
+  const activeTrackBeepIssuesCount = $derived.by(() => {
+    if (app.activeTrack.output !== 'beep') return 0;
+    let count = 0;
+    for (const n of app.activeTrack.notes) {
+      if (app.beepIssues.has(n.id)) count++;
+    }
+    return count;
+  });
+  const totalBeepIssuesCount = $derived(app.beepIssues.size);
 
   function triggerMidiFile() {
     midiFileInput?.click();
@@ -301,10 +314,17 @@
 
       <span class="spacer"></span>
 
-      {#if app.timeline.beepConflicts > 0}
-        <span class="result ng" use:tooltip={t('beep_conflict_tooltip')}
-          >{t('beep_conflicts')} {app.timeline.beepConflicts}</span
+      {#if app.timeline.beepConflicts > 0 || totalBeepIssuesCount > 0}
+        <button
+          type="button"
+          class="result ng conflict-badge-btn"
+          onclick={() => app.optimizeAllBeepTracks()}
+          use:tooltip={t('beep_conflict_tooltip')}
         >
+          <AlertTriangle size={12} strokeWidth={2.5} />
+          <span>{t('beep_conflicts')} {totalBeepIssuesCount > 0 ? totalBeepIssuesCount : app.timeline.beepConflicts}</span>
+          <span class="badge-action">({t('beep_optimize_btn')})</span>
+        </button>
       {/if}
     </div>
   </header>
@@ -422,6 +442,33 @@
         </button>
         {#if app.selectedNoteIds.length > 0}
           <span class="selected-badge">{app.selectedNoteIds.length} sel</span>
+        {/if}
+        {#if hasBeepTrack}
+          <span class="sep"></span>
+          <button
+            class="sq-action beep-opt-btn"
+            class:warn={activeTrackBeepIssuesCount > 0}
+            onclick={() => app.optimizeBeepTrack(app.activeTrack.id)}
+            disabled={app.activeTrack.output !== 'beep' || app.activeTrack.notes.length === 0}
+            use:tooltip={t('beep_optimize_track')}
+          >
+            {#if activeTrackBeepIssuesCount > 0}
+              <AlertTriangle size={12} strokeWidth={2.5} class="warn-icon" />
+            {:else}
+              <Wand2 size={12} strokeWidth={2.5} />
+            {/if}
+            <span>{t('beep_optimize_btn')}</span>
+            {#if activeTrackBeepIssuesCount > 0}
+              <span class="issue-badge">{activeTrackBeepIssuesCount}</span>
+            {/if}
+          </button>
+          <button
+            class="sq-action"
+            onclick={() => app.optimizeAllBeepTracks()}
+            use:tooltip={t('beep_optimize_all')}
+          >
+            <span>{t('beep_optimize_all')}</span>
+          </button>
         {/if}
       </div>
     </div>
@@ -858,6 +905,46 @@
     font-family: var(--font-mono);
     font-size: 11px;
     box-shadow: 2px 2px 0 var(--ink);
+  }
+  .conflict-badge-btn {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: #fff0f3;
+    border: 2px solid var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+    font-weight: 700;
+  }
+  .conflict-badge-btn:hover {
+    background: #ffe3e8;
+  }
+  .conflict-badge-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+  .badge-action {
+    font-size: 10px;
+    text-decoration: underline;
+    opacity: 0.85;
+    margin-left: 2px;
+  }
+  .beep-opt-btn.warn {
+    background: #fff0f3;
+  }
+  :global(.warn-icon) {
+    color: #ff2a4b;
+    flex-shrink: 0;
+  }
+  .issue-badge {
+    background: #ff2a4b;
+    color: #fff;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    padding: 0 4px;
+    border: 1px solid var(--ink);
+    margin-left: 2px;
   }
   .hint {
     font-size: 12px;

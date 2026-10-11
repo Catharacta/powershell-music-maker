@@ -98,6 +98,22 @@ export const translations = {
     settings_beep_overlap_desc: 'Beepは単音発音のみ対応しています。同じタイミングで重なったノートの処理方法を指定します。',
     settings_beep_latest: '後優先 (新しい音で前の音を切り詰める)',
     settings_beep_ignore: '先優先 (発音中の音を維持し、重なった音を無視)',
+    settings_beep_min_gap: 'Beep ノート間最小ギャップ (ms)',
+    settings_beep_min_gap_desc: '連続するノート間で音が繋がってアタックが消失するのを防ぐため、前の音を自動で切り詰めて確保する無音時間です。',
+    settings_beep_min_dur: 'Beep 最小音長 (ms)',
+    settings_beep_min_dur_desc: 'Beepが正常に発音される最短の持続時間を保証します（短すぎるノートを延長）。',
+
+    // Beep最適化＆警告
+    beep_optimize_btn: 'Beep最適化',
+    beep_optimize_track: 'このトラックを最適化',
+    beep_optimize_all: '全Beepトラックを最適化',
+    beep_warn_overlap: 'ノートが重複しています (単音のみ対応)',
+    beep_warn_gap: '次の音との間隔が狭すぎます (アタック消失の恐れ)',
+    beep_warn_short: 'ノートが短すぎます (発音不良の恐れ)',
+    beep_warn_low: '周波数が低すぎます (37Hz未満)',
+    beep_warn_conflict: '他Beepトラックと衝突しています',
+    status_beep_optimized: '{count}件のノートをBeep用に最適化しました',
+    status_no_beep_notes: '最適化対象のBeepノートがありません',
 
     // 設定：ライセンス・情報
     settings_app_desc: 'ピアノロールから Beep / Microsoft GS Wavetable Synth を鳴らす PowerShell スクリプトを出力するアプリ',
@@ -247,6 +263,22 @@ export const translations = {
     settings_beep_overlap_desc: 'Console.Beep only plays one tone at a time. Choose how to handle overlapping notes.',
     settings_beep_latest: 'Latest (Cut off previous note when new note arrives)',
     settings_beep_ignore: 'Ignore (Keep current note playing, ignore overlapping notes)',
+    settings_beep_min_gap: 'Beep Min Gap (ms)',
+    settings_beep_min_gap_desc: 'Silence gap inserted between consecutive notes by trimming the earlier note, ensuring a clear attack.',
+    settings_beep_min_dur: 'Beep Min Duration (ms)',
+    settings_beep_min_dur_desc: 'Guarantees the minimum note duration for Beep to sound clearly (extends notes that are too short).',
+
+    // Beep optimization & warnings
+    beep_optimize_btn: 'Optimize Beep',
+    beep_optimize_track: 'Optimize This Track',
+    beep_optimize_all: 'Optimize All Beep Tracks',
+    beep_warn_overlap: 'Notes overlap (Beep is monophonic)',
+    beep_warn_gap: 'Gap to next note is too narrow (attack will be lost)',
+    beep_warn_short: 'Note is too short (may not play properly)',
+    beep_warn_low: 'Frequency is too low (< 37Hz)',
+    beep_warn_conflict: 'Conflicts with another Beep track',
+    status_beep_optimized: 'Optimized {count} notes for Beep',
+    status_no_beep_notes: 'No Beep notes to optimize',
 
     // Settings: About & Licenses
     settings_app_desc: 'Piano roll editor generating PowerShell scripts using Beep and Microsoft GS Wavetable Synth.',

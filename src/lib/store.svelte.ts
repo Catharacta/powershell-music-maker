@@ -10,7 +10,7 @@ import {
   type ProjectFile,
   validateProjectFile
 } from './model';
-import { buildTimeline } from './timeline';
+import { buildTimeline, detectBeepIssues, optimizeBeepNotes, type BeepIssueKind } from './timeline';
 import { generateScript } from './generator';
 import { settings } from './settings.svelte';
 import { t } from './i18n';
@@ -119,7 +119,19 @@ class AppState {
   scriptArtist = $state<string>('');
 
   activeTrack = $derived(this.project.tracks.find((t) => t.id === this.activeTrackId) ?? this.project.tracks[0]);
-  timeline = $derived(buildTimeline(this.project, { beepOverlap: settings.script.beepOverlap }));
+  timeline = $derived(
+    buildTimeline(this.project, {
+      beepOverlap: settings.script.beepOverlap,
+      beepMinGapMs: settings.script.beepMinGapMs,
+      beepMinDurMs: settings.script.beepMinDurMs
+    })
+  );
+  beepIssues = $derived(
+    detectBeepIssues(this.project, {
+      minGapMs: settings.script.beepMinGapMs,
+      minDurMs: settings.script.beepMinDurMs
+    })
+  );
   script = $derived(
     generateScript(this.project, this.timeline, {
       visualizer: this.visualizer,
@@ -333,6 +345,44 @@ class AppState {
     } else {
       this.clearSelection();
     }
+  }
+
+  optimizeBeepTrack(trackId: number) {
+    const track = this.project.tracks.find((t) => t.id === trackId);
+    if (!track || track.output !== 'beep' || track.notes.length === 0) {
+      this.status = t('status_no_beep_notes');
+      return;
+    }
+    const optimized = optimizeBeepNotes(
+      track.notes,
+      this.project.bpm,
+      settings.script.beepMinGapMs,
+      settings.script.beepMinDurMs
+    );
+    track.notes = optimized;
+    this.clearSelection();
+    this.status = t('status_beep_optimized', { count: optimized.length });
+  }
+
+  optimizeAllBeepTracks() {
+    const beepTracks = this.project.tracks.filter((t) => t.output === 'beep' && t.notes.length > 0);
+    if (beepTracks.length === 0) {
+      this.status = t('status_no_beep_notes');
+      return;
+    }
+    let totalCount = 0;
+    for (const track of beepTracks) {
+      const optimized = optimizeBeepNotes(
+        track.notes,
+        this.project.bpm,
+        settings.script.beepMinGapMs,
+        settings.script.beepMinDurMs
+      );
+      track.notes = optimized;
+      totalCount += optimized.length;
+    }
+    this.clearSelection();
+    this.status = t('status_beep_optimized', { count: totalCount });
   }
 
   loadMidiAsNew(info: import('./midi').ParsedMidiInfo) {

@@ -67,9 +67,21 @@ impl Default for BeepOverlap {
     }
 }
 
-#[derive(Default, Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct TimelineOptions {
     pub beep_overlap: BeepOverlap,
+    pub beep_min_gap_ms: u32,
+    pub beep_min_dur_ms: u32,
+}
+
+impl Default for TimelineOptions {
+    fn default() -> Self {
+        Self {
+            beep_overlap: BeepOverlap::Latest,
+            beep_min_gap_ms: 20,
+            beep_min_dur_ms: 25,
+        }
+    }
 }
 
 struct RawBeepNote {
@@ -84,6 +96,8 @@ pub fn build_timeline(p: &Project, options: TimelineOptions) -> Timeline {
     let mut has_gs = false;
     let mut has_beep = false;
     let mut beep_conflicts = 0;
+    let min_gap_ms = options.beep_min_gap_ms as f64;
+    let min_dur_ms = (options.beep_min_dur_ms as f64).max(1.0);
 
     // GS: トラック単位で Program Change + NoteOn/Off
     for (t_idx, t) in p.tracks.iter().enumerate() {
@@ -165,20 +179,33 @@ pub fn build_timeline(p: &Project, options: TimelineOptions) -> Timeline {
                 current_end_tick = item.start_tick + item.duration_tick;
                 kept.push(item);
             }
-            for item in kept {
+            let len = kept.len();
+            for i in 0..len {
                 has_beep = true;
+                let item = &kept[i];
                 let s = tick_to_ms(item.start_tick, p.bpm).round();
-                let e = tick_to_ms(item.start_tick + item.duration_tick, p.bpm).round();
+                let mut e = tick_to_ms(item.start_tick + item.duration_tick, p.bpm).round();
+                let dur = if i + 1 < len {
+                    let next = &kept[i + 1];
+                    let next_s = tick_to_ms(next.start_tick, p.bpm).round();
+                    if next_s - e < min_gap_ms {
+                        e = next_s - min_gap_ms;
+                    }
+                    let avail = (next_s - s - min_gap_ms).max(1.0);
+                    (e - s).max(min_dur_ms).min(avail).max(1.0)
+                } else {
+                    (e - s).max(min_dur_ms).max(1.0)
+                };
                 events.push(TLEvent {
                     t_ms: s,
                     kind: EventKind::Beep.as_str().to_string(),
                     track_index: Some(item.track_index),
                     ch: None,
-                    pitch: None,
+                    pitch: Some(item.pitch),
                     vel: None,
                     program: None,
                     freq: Some(note_to_freq(item.pitch)),
-                    dur_ms: Some((e - s).max(1.0) as u32),
+                    dur_ms: Some(dur as u32),
                 });
             }
         }
@@ -199,25 +226,35 @@ pub fn build_timeline(p: &Project, options: TimelineOptions) -> Timeline {
                 has_beep = true;
                 let item = &kept[i];
                 let mut end_tick = item.start_tick + item.duration_tick;
-                if i + 1 < len {
-                    let next = &kept[i + 1];
+                let next_opt = if i + 1 < len { Some(&kept[i + 1]) } else { None };
+                if let Some(next) = next_opt {
                     if next.start_tick < end_tick {
                         end_tick = next.start_tick;
                         beep_conflicts += 1;
                     }
                 }
                 let s = tick_to_ms(item.start_tick, p.bpm).round();
-                let e = tick_to_ms(end_tick, p.bpm).round();
+                let mut raw_e = tick_to_ms(end_tick, p.bpm).round();
+                let dur = if let Some(next) = next_opt {
+                    let next_s = tick_to_ms(next.start_tick, p.bpm).round();
+                    if next_s - raw_e < min_gap_ms {
+                        raw_e = next_s - min_gap_ms;
+                    }
+                    let avail = (next_s - s - min_gap_ms).max(1.0);
+                    (raw_e - s).max(min_dur_ms).min(avail).max(1.0)
+                } else {
+                    (raw_e - s).max(min_dur_ms).max(1.0)
+                };
                 events.push(TLEvent {
                     t_ms: s,
                     kind: EventKind::Beep.as_str().to_string(),
                     track_index: Some(item.track_index),
                     ch: None,
-                    pitch: None,
+                    pitch: Some(item.pitch),
                     vel: None,
                     program: None,
                     freq: Some(note_to_freq(item.pitch)),
-                    dur_ms: Some((e - s).max(1.0) as u32),
+                    dur_ms: Some(dur as u32),
                 });
             }
         }

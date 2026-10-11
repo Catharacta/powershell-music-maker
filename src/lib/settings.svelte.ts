@@ -18,6 +18,8 @@ export interface AppSettings {
     visualizer: boolean;
     preferredPs: PreferredPs;
     beepOverlap: BeepOverlap;
+    beepMinGapMs: number;
+    beepMinDurMs: number;
   };
 }
 
@@ -35,7 +37,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   script: {
     visualizer: true,
     preferredPs: 'auto',
-    beepOverlap: 'latest'
+    beepOverlap: 'latest',
+    beepMinGapMs: 20,
+    beepMinDurMs: 25
   }
 };
 
@@ -57,7 +61,9 @@ function loadSettings(): AppSettings {
       script: {
         visualizer: typeof parsed.script?.visualizer === 'boolean' ? parsed.script.visualizer : DEFAULT_SETTINGS.script.visualizer,
         preferredPs: ['powershell', 'pwsh'].includes(parsed.script?.preferredPs) ? parsed.script.preferredPs : 'auto',
-        beepOverlap: parsed.script?.beepOverlap === 'ignore' ? 'ignore' : 'latest'
+        beepOverlap: parsed.script?.beepOverlap === 'ignore' ? 'ignore' : 'latest',
+        beepMinGapMs: Math.min(100, Math.max(0, Number(parsed.script?.beepMinGapMs) ?? DEFAULT_SETTINGS.script.beepMinGapMs)),
+        beepMinDurMs: Math.min(200, Math.max(10, Number(parsed.script?.beepMinDurMs) ?? DEFAULT_SETTINGS.script.beepMinDurMs))
       }
     };
   } catch (e) {

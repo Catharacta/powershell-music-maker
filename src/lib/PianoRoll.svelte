@@ -1,7 +1,10 @@
 <script lang="ts">
-import { onMount } from 'svelte';
+  import { onMount } from 'svelte';
+  import { AlertTriangle } from '@lucide/svelte';
   import { app, nextId } from '$lib/store.svelte';
   import { BEATS_PER_BAR, PPQ, isBlack, noteName, tickToMs, type Note } from '$lib/model';
+  import { t } from '$lib/i18n';
+  import type { BeepIssueKind } from '$lib/timeline';
 
   const PX = $derived(app.pxPerTick);
   const ROW = 20;
@@ -15,6 +18,35 @@ import { onMount } from 'svelte';
   let viewportWidth = $state(1200);
   const totalWidth = $derived(app.totalTicks * PX);
   const height = (PMAX - PMIN + 1) * ROW;
+
+  let hoveredNoteIssue = $state<{
+    note: Note;
+    issues: BeepIssueKind[];
+    x: number;
+    y: number;
+  } | null>(null);
+
+  function formatIssueText(issues: BeepIssueKind[]): string {
+    return issues
+      .map((kind) => {
+        switch (kind) {
+          case 'overlap':
+            return t('beep_warn_overlap');
+          case 'gap':
+            return t('beep_warn_gap');
+          case 'short':
+            return t('beep_warn_short');
+          case 'low_pitch':
+            return t('beep_warn_low');
+          case 'cross_track':
+            return t('beep_warn_conflict');
+          default:
+            return '';
+        }
+      })
+      .filter(Boolean)
+      .join(' / ');
+  }
 
   function css(name: string) {
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -63,7 +95,8 @@ import { onMount } from 'svelte';
     for (const tr of app.project.tracks) {
       if (tr.mute) continue;
       const active = tr.id === app.activeTrack.id;
-      const col = css(tr.output === 'beep' ? '--c-beep' : '--c-gs');
+      const isBeep = tr.output === 'beep';
+      const col = css(isBeep ? '--c-beep' : '--c-gs');
       ctx.globalAlpha = active ? 1 : 0.45;
       for (const n of tr.notes) {
         const absX = n.startTick * PX;
@@ -75,6 +108,8 @@ import { onMount } from 'svelte';
         }
 
         const isSelected = active && app.isNoteSelected(n.id);
+        const issues = isBeep ? app.beepIssues.get(n.id) : undefined;
+        const hasIssue = Boolean(issues && issues.length > 0);
         const x = absX - scrollLeft;
         const y = (PMAX - n.pitch) * ROW;
 
@@ -104,6 +139,20 @@ import { onMount } from 'svelte';
         ctx.strokeStyle = ink;
         ctx.lineWidth = isSelected ? 3.5 : 3;
         ctx.strokeRect(x + 1.5 + ox, y + 2.5 + oy, w - 3, ROW - 5);
+
+        // Beepの警告枠描画 (赤/黄の強調枠と警告バー)
+        if (hasIssue && active) {
+          ctx.save();
+          ctx.strokeStyle = '#ff2a4b';
+          ctx.lineWidth = 2.5;
+          ctx.strokeRect(x + 1.5 + ox, y + 2.5 + oy, w - 3, ROW - 5);
+
+          // ノート右上にネオブルータリズム警告バー
+          const barW = Math.min(10, Math.max(4, w - 6));
+          ctx.fillStyle = '#ff2a4b';
+          ctx.fillRect(x + ox + w - barW - 3, y + 3 + oy, barW, 4);
+          ctx.restore();
+        }
       }
       ctx.globalAlpha = 1;
     }
@@ -526,6 +575,33 @@ import { onMount } from 'svelte';
     draw();
   }
 
+  function handlePointerMove(e: PointerEvent) {
+    if (drag) {
+      move(e);
+      hoveredNoteIssue = null;
+      return;
+    }
+    // ホバー検出 (Beep警告があるノートに乗っているか)
+    if (app.activeTrack.output === 'beep') {
+      const { x, y } = local(e);
+      const n = hit(x, y);
+      if (n) {
+        const issues = app.beepIssues.get(n.id);
+        if (issues && issues.length > 0) {
+          const scrollLeft = scroller ? scroller.scrollLeft : 0;
+          hoveredNoteIssue = {
+            note: n,
+            issues,
+            x: n.startTick * PX - scrollLeft,
+            y: (PMAX - n.pitch) * ROW
+          };
+          return;
+        }
+      }
+    }
+    hoveredNoteIssue = null;
+  }
+
   function up() {
     if (drag) {
       if (drag.mode === 'box-select') {
@@ -571,10 +647,21 @@ import { onMount } from 'svelte';
         width={viewportWidth}
         height={height}
         onpointerdown={down}
-        onpointermove={move}
+        onpointermove={handlePointerMove}
+        onpointerleave={() => (hoveredNoteIssue = null)}
         onpointerup={up}
         oncontextmenu={del}
       ></canvas>
+
+      {#if hoveredNoteIssue}
+        <div
+          class="beep-warn-popup"
+          style="left: {Math.max(0, hoveredNoteIssue.x)}px; top: {Math.max(0, hoveredNoteIssue.y - 28)}px;"
+        >
+          <AlertTriangle size={13} strokeWidth={2.5} class="warn-popup-icon" />
+          <span>{formatIssueText(hoveredNoteIssue.issues)}</span>
+        </div>
+      {/if}
     </div>
   </div>
 </div>
@@ -621,5 +708,26 @@ import { onMount } from 'svelte';
   canvas {
     display: block;
     cursor: crosshair;
+  }
+  .beep-warn-popup {
+    position: absolute;
+    pointer-events: none;
+    z-index: 50;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    background: #fff0f3;
+    color: #ff2a4b;
+    border: 2px solid var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+    border-radius: 0;
+  }
+  :global(.warn-popup-icon) {
+    color: #ff2a4b;
+    flex-shrink: 0;
   }
 </style>

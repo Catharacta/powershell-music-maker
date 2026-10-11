@@ -44,6 +44,14 @@ enum Commands {
         /// Beep overlap behavior: 'latest' (cut off previous note) or 'ignore' (keep previous note)
         #[arg(long, default_value = "latest")]
         beep_overlap: String,
+
+        /// Minimum silence gap between consecutive Beep notes in milliseconds
+        #[arg(long, default_value_t = 20)]
+        beep_min_gap: u32,
+
+        /// Minimum duration for a Beep note in milliseconds
+        #[arg(long, default_value_t = 25)]
+        beep_min_dur: u32,
     },
 
     /// Play a project JSON or MIDI file through local PC speakers
@@ -150,6 +158,8 @@ fn main() -> Result<()> {
             title,
             artist,
             beep_overlap,
+            beep_min_gap,
+            beep_min_dur,
         } => {
             let content = read_input_string(&input)?;
             let project = parse_project_json(&content).map_err(|e| anyhow::anyhow!("{e}"))?;
@@ -174,6 +184,8 @@ fn main() -> Result<()> {
                 &project,
                 TimelineOptions {
                     beep_overlap: overlap,
+                    beep_min_gap_ms: beep_min_gap,
+                    beep_min_dur_ms: beep_min_dur,
                 },
             );
             let script = generate_script(

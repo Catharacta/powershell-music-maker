@@ -265,6 +265,38 @@
                   style="max-width: 380px; width: 100%;"
                 />
               </div>
+
+              <div class="setting-item">
+                <label class="setting-label" for="beep-min-gap">{t('settings_beep_min_gap')}</label>
+                <p class="setting-desc">{t('settings_beep_min_gap_desc')}</p>
+                <div class="input-row">
+                  <input
+                    id="beep-min-gap"
+                    type="number"
+                    min="0"
+                    max="100"
+                    bind:value={settings.script.beepMinGapMs}
+                    class="input-num"
+                  />
+                  <span class="unit">ms (0 - 100)</span>
+                </div>
+              </div>
+
+              <div class="setting-item">
+                <label class="setting-label" for="beep-min-dur">{t('settings_beep_min_dur')}</label>
+                <p class="setting-desc">{t('settings_beep_min_dur_desc')}</p>
+                <div class="input-row">
+                  <input
+                    id="beep-min-dur"
+                    type="number"
+                    min="10"
+                    max="200"
+                    bind:value={settings.script.beepMinDurMs}
+                    class="input-num"
+                  />
+                  <span class="unit">ms (10 - 200)</span>
+                </div>
+              </div>
             </section>
           {:else if activeTab === 'about'}
             <section class="section">

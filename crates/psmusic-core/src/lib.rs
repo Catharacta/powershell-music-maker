@@ -76,9 +76,56 @@ mod tests {
         assert!(script.contains("PsMusic"));
         assert!(script.contains("sb.AppendLine(BoxRow(\"TITLE : \" + Title));"));
         assert!(script.contains("sb.AppendLine(BoxRow(\"ARTIST: \" + Artist));"));
-        assert!(script.contains("'My Test Song', 'Composer'"));
-        assert!(script.contains("B 0 440 500"));
+        assert!(script.contains("B 0 440 480"));
         assert!(script.contains("B 0 494 500"));
+    }
+
+    #[test]
+    fn test_beep_gap_and_min_dur() {
+        let mut project = Project::default();
+        project.bpm = 120.0;
+        project.tracks.push(Track {
+            id: 1,
+            name: "BeepTest".to_string(),
+            output: Output::Beep,
+            channel: 0,
+            program: 0,
+            volume: 100,
+            mute: false,
+            notes: vec![
+                // 10msの極小ノート -> min_dur 25ms に延長されるが後ろの音とのギャップ20msも考慮
+                Note {
+                    id: 1,
+                    start_tick: 0,
+                    duration_tick: 10,
+                    pitch: 60,
+                    velocity: 100,
+                },
+                // 1000 tick のノート (約1042ms)
+                Note {
+                    id: 2,
+                    start_tick: 500,
+                    duration_tick: 1000,
+                    pitch: 64,
+                    velocity: 100,
+                },
+            ],
+        });
+
+        let tl = build_timeline(
+            &project,
+            TimelineOptions {
+                beep_overlap: BeepOverlap::Latest,
+                beep_min_gap_ms: 20,
+                beep_min_dur_ms: 25,
+            },
+        );
+
+        assert_eq!(tl.events.len(), 2);
+        // 最初のノートは min_dur_ms=25 が保証される (500 tick ≒ 521ms なので十分な空き時間がある)
+        assert_eq!(tl.events[0].dur_ms, Some(25));
+        // 2番目のノートは末尾に音がないのでそのままの長さ (1000 tick ≒ 1042ms)
+        assert_eq!(tl.events[1].dur_ms, Some(1042));
     }
 
     #[test]

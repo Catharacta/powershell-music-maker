@@ -46,12 +46,21 @@ fn generate_ps_script(
     title: Option<String>,
     artist: Option<String>,
     beep_overlap: Option<String>,
+    beep_min_gap_ms: Option<u32>,
+    beep_min_dur_ms: Option<u32>,
 ) -> Result<String, String> {
     let overlap = match beep_overlap.as_deref() {
         Some("ignore") => BeepOverlap::Ignore,
         _ => BeepOverlap::Latest,
     };
-    let tl = build_timeline(&project, TimelineOptions { beep_overlap: overlap });
+    let tl = build_timeline(
+        &project,
+        TimelineOptions {
+            beep_overlap: overlap,
+            beep_min_gap_ms: beep_min_gap_ms.unwrap_or(20),
+            beep_min_dur_ms: beep_min_dur_ms.unwrap_or(25),
+        },
+    );
     let script = generate_script(
         &project,
         &tl,
@@ -65,12 +74,24 @@ fn generate_ps_script(
 }
 
 #[tauri::command]
-fn get_project_timeline(project: Project, beep_overlap: Option<String>) -> Timeline {
+fn get_project_timeline(
+    project: Project,
+    beep_overlap: Option<String>,
+    beep_min_gap_ms: Option<u32>,
+    beep_min_dur_ms: Option<u32>,
+) -> Timeline {
     let overlap = match beep_overlap.as_deref() {
         Some("ignore") => BeepOverlap::Ignore,
         _ => BeepOverlap::Latest,
     };
-    build_timeline(&project, TimelineOptions { beep_overlap: overlap })
+    build_timeline(
+        &project,
+        TimelineOptions {
+            beep_overlap: overlap,
+            beep_min_gap_ms: beep_min_gap_ms.unwrap_or(20),
+            beep_min_dur_ms: beep_min_dur_ms.unwrap_or(25),
+        },
+    )
 }
 
 #[tauri::command]
