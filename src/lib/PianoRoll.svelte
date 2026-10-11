@@ -2,7 +2,7 @@
   import { app, nextId } from '$lib/store.svelte';
   import { BEATS_PER_BAR, PPQ, isBlack, noteName, tickToMs, type Note } from '$lib/model';
 
-  const PX = 0.2; // px / tick
+  const PX = $derived(app.pxPerTick);
   const ROW = 20;
   const PMIN = 36;
   const PMAX = 96;
@@ -32,7 +32,12 @@
       ctx.fillRect(0, y + ROW - 1, W, p % 12 === 0 ? 2 : 1);
     }
     // 縦線: 小節=太, 拍=中, グリッド=細
-    for (let t = 0; t <= app.totalTicks; t += app.quant) {
+    // グリッド線間隔が狭すぎる (6px未満) 場合はグリッド細線を間引く
+    const quantStep = Math.max(1, app.quant);
+    const drawGridLines = app.quant > 1 && (quantStep * PX >= 6);
+    const step = drawGridLines ? quantStep : PPQ;
+
+    for (let t = 0; t <= app.totalTicks; t += step) {
       const x = Math.round(t * PX);
       const bar = t % (PPQ * BEATS_PER_BAR) === 0;
       const beat = t % PPQ === 0;
@@ -50,7 +55,7 @@
       for (const n of tr.notes) {
         const x = n.startTick * PX;
         const y = (PMAX - n.pitch) * ROW;
-        const w = Math.max(4, n.durationTick * PX);
+        const w = Math.max(6, n.durationTick * PX);
         if (active) {
           ctx.fillStyle = ink;
           ctx.fillRect(x + 4, y + 4, w, ROW - 2);
@@ -72,8 +77,9 @@
   }
 
   $effect(() => {
-    // 依存: プロジェクト・グリッド・再生位置・アクティブトラック
+    // 依存: プロジェクト・グリッド・再生位置・アクティブトラック・表示倍率
     void width;
+    void app.pxPerTick;
     draw();
   });
 
@@ -89,6 +95,32 @@
     }
   });
 
+  // Ctrl + ホイールでの横ズーム
+  $effect(() => {
+    if (!scroller) return;
+    const handleWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        const factor = e.deltaY < 0 ? 1.25 : 0.8;
+        const rect = scroller.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left + scroller.scrollLeft - KEYW;
+        const tick = mouseX / PX;
+
+        app.setPxPerTick(PX * factor);
+
+        requestAnimationFrame(() => {
+          const newX = tick * app.pxPerTick;
+          scroller.scrollLeft = Math.max(0, newX + KEYW - (e.clientX - rect.left));
+        });
+      }
+    };
+
+    scroller.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      scroller.removeEventListener('wheel', handleWheel);
+    };
+  });
+
   type Drag = { note: Note; mode: 'move' | 'resize'; dx: number };
   let drag: Drag | null = null;
 
@@ -100,21 +132,44 @@
     const pitch = PMAX - Math.floor(y / ROW);
     return [...app.activeTrack.notes]
       .reverse()
-      .find((n) => n.pitch === pitch && x >= n.startTick * PX && x <= (n.startTick + n.durationTick) * PX);
+      .find((n) => {
+        if (n.pitch !== pitch) return false;
+        const nx = n.startTick * PX;
+        const nw = Math.max(6, n.durationTick * PX);
+        return x >= nx && x <= nx + nw;
+      });
   }
-  const snap = (tick: number) => Math.max(0, Math.floor(tick / app.quant) * app.quant);
+  const snap = (tick: number) => {
+    const q = Math.max(1, app.quant);
+    return Math.max(0, Math.floor(tick / q) * q);
+  };
 
   function down(e: PointerEvent) {
     if (e.button !== 0) return;
     const { x, y } = local(e);
     const n = hit(x, y);
     if (n) {
-      const right = (n.startTick + n.durationTick) * PX;
-      drag = { note: n, mode: right - x < 8 ? 'resize' : 'move', dx: x / PX - n.startTick };
+      const nx = n.startTick * PX;
+      const nw = Math.max(6, n.durationTick * PX);
+      const right = nx + nw;
+      const resizeThreshold = Math.min(8, Math.max(3, nw * 0.4));
+      const isResize = (right - x) <= resizeThreshold;
+      drag = {
+        note: n,
+        mode: isResize ? 'resize' : 'move',
+        dx: x / PX - n.startTick
+      };
     } else {
       const pitch = PMAX - Math.floor(y / ROW);
       if (pitch < PMIN || pitch > PMAX) return;
-      const note: Note = { id: nextId(), startTick: snap(x / PX), durationTick: app.quant, pitch, velocity: 100 };
+      const durationTick = Math.max(1, app.quant);
+      const note: Note = {
+        id: nextId(),
+        startTick: snap(x / PX),
+        durationTick,
+        pitch,
+        velocity: 100
+      };
       app.activeTrack.notes.push(note);
       drag = { note: app.activeTrack.notes[app.activeTrack.notes.length - 1], mode: 'resize', dx: 0 };
     }
@@ -127,8 +182,9 @@
       drag.note.startTick = snap(x / PX - drag.dx);
       drag.note.pitch = Math.min(PMAX, Math.max(PMIN, PMAX - Math.floor(y / ROW)));
     } else {
-      const end = Math.ceil(x / PX / app.quant) * app.quant;
-      drag.note.durationTick = Math.max(app.quant, end - drag.note.startTick);
+      const q = Math.max(1, app.quant);
+      const end = Math.ceil((x / PX) / q) * q;
+      drag.note.durationTick = Math.max(q, end - drag.note.startTick);
     }
   }
   function up() {

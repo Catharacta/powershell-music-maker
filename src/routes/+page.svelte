@@ -85,7 +85,10 @@
     [PPQ, '1/4'],
     [PPQ / 2, '1/8'],
     [PPQ / 4, '1/16'],
-    [PPQ / 8, '1/32']
+    [PPQ / 8, '1/32'],
+    [PPQ / 16, '1/64'],
+    [PPQ / 32, '1/128'],
+    [1, 'OFF']
   ] as const;
 </script>
 
@@ -111,6 +114,14 @@
         {#each quants as [v, l] (v)}<option value={v}>{l}</option>{/each}
       </select></label
     >
+    <label class="zoom-ctrl"
+      >Zoom
+      <button type="button" class="sq-btn" onclick={() => app.zoomOut()} title="Zoom Out (-)">-</button>
+      <button type="button" class="zoom-val" onclick={() => app.zoomReset()} title="Reset Zoom (100%)">
+        {Math.round((app.pxPerTick / 0.2) * 100)}%
+      </button>
+      <button type="button" class="sq-btn" onclick={() => app.zoomIn()} title="Zoom In (+)">+</button>
+    </label>
     <label
       >Bars <input type="number" min="1" max="64" bind:value={app.project.bars} style="width:70px" /></label
     >
@@ -173,7 +184,7 @@
 
   <main>
     <h2>Piano Roll — {app.activeTrack.name}</h2>
-    <div class="hint">クリック:追加 / ドラッグ:移動 / 右端ドラッグ:長さ / 右クリック:削除</div>
+    <div class="hint">クリック:追加 / ドラッグ:移動 / 右端ドラッグ:長さ / 右クリック:削除 / Ctrl+ホイール:横ズーム</div>
     <div class="roll"><PianoRoll /></div>
     {#if app.status}<div class="result ng">{app.status}</div>{/if}
   </main>
@@ -291,6 +302,41 @@
   .bpm input {
     width: 90px;
     font-size: 18px;
+  }
+  .zoom-ctrl {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .sq-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+    font-family: var(--font-head);
+    font-size: 16px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .sq-btn:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
+  }
+  .zoom-val {
+    min-width: 54px;
+    height: 32px;
+    padding: 0 4px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    text-align: center;
+    display: grid;
+    place-items: center;
+    box-shadow: 2px 2px 0 var(--ink);
+    cursor: pointer;
+  }
+  .zoom-val:active {
+    transform: translate(2px, 2px);
+    box-shadow: none;
   }
   .spacer {
     flex: 1;

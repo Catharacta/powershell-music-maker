@@ -45,6 +45,8 @@ class AppState {
   activeTrackId = $state(1);
   /** グリッド/新規ノート長(tick) */
   quant = $state(PPQ / 4);
+  /** 表示倍率 (px / tick) デフォルト 0.2 (100%) */
+  pxPerTick = $state(0.2);
   playing = $state(false);
   playheadMs = $state(-1);
   showScript = $state(false);
@@ -55,6 +57,23 @@ class AppState {
   timeline = $derived(buildTimeline(this.project));
   script = $derived(generateScript(this.project, this.timeline, { visualizer: this.visualizer }));
   totalTicks = $derived(this.project.bars * BEATS_PER_BAR * PPQ);
+
+  zoomIn() {
+    this.setPxPerTick(this.pxPerTick * 1.25);
+  }
+
+  zoomOut() {
+    this.setPxPerTick(this.pxPerTick / 1.25);
+  }
+
+  zoomReset() {
+    this.pxPerTick = 0.2;
+  }
+
+  setPxPerTick(val: number) {
+    // 0.04 (20%) 〜 1.6 (800%) にクランプ
+    this.pxPerTick = Math.min(1.6, Math.max(0.04, Math.round(val * 1000) / 1000));
+  }
 
   addTrack(output: Output) {
     const used = new Set(this.project.tracks.map((t) => t.channel));
