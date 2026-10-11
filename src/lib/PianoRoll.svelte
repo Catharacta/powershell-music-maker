@@ -1,4 +1,5 @@
 <script lang="ts">
+import { onMount } from 'svelte';
   import { app, nextId } from '$lib/store.svelte';
   import { BEATS_PER_BAR, PPQ, isBlack, noteName, tickToMs, type Note } from '$lib/model';
 
@@ -125,6 +126,12 @@
   });
 
   let scroller: HTMLDivElement;
+  onMount(() => {
+    if (scroller) {
+      // 初期スクロール位置: C5 (pitch 72) 付近を上部に合わせることで、C4〜C6 がちょうど視界に入る
+      scroller.scrollTop = (PMAX - 72) * ROW;
+    }
+  });
   // 再生位置が表示範囲の外に出たら、画面内に戻るようスクロールして追従する
   $effect(() => {
     if (app.playheadMs < 0 || !scroller) return;
