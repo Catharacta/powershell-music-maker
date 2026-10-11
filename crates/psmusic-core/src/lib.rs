@@ -64,8 +64,19 @@ mod tests {
         assert_eq!(tl.has_gs, false);
         assert_eq!(tl.end_ms, 1000.0);
 
-        let script = generate_script(&project, &tl, GeneratorOptions::default());
+        let script = generate_script(
+            &project,
+            &tl,
+            GeneratorOptions {
+                visualizer: true,
+                title: Some("My Test Song".to_string()),
+                artist: Some("Composer".to_string()),
+            },
+        );
         assert!(script.contains("PsMusic"));
+        assert!(script.contains("sb.AppendLine(BoxRow(\"TITLE : \" + Title));"));
+        assert!(script.contains("sb.AppendLine(BoxRow(\"ARTIST: \" + Artist));"));
+        assert!(script.contains("'My Test Song', 'Composer'"));
         assert!(script.contains("B 0 440 500"));
         assert!(script.contains("B 0 494 500"));
     }

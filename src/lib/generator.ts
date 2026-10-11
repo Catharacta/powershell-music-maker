@@ -10,10 +10,14 @@ function ascii(s: string): string {
 
 export interface GeneratorOptions {
   visualizer?: boolean;
+  title?: string;
+  artist?: string;
 }
 
 export function generateScript(p: Project, tl: Timeline, options: GeneratorOptions = {}): string {
   const visualizer = options.visualizer ?? true;
+  const title = options.title ?? '';
+  const artist = options.artist ?? '';
   const L: string[] = [];
 
   L.push('# PowerShell Music Maker generated script (PowerShell 5.1 / 7)');
@@ -79,6 +83,8 @@ public class TrackState {
     L.push(`  public static TrackState[] Tracks;
   public static int TotalMs;
   public static int Bpm;
+  public static string Title;
+  public static string Artist;
   public static Stopwatch Sw;
   private static Thread RenderThread;
   private static volatile bool Running = false;
@@ -86,9 +92,11 @@ public class TrackState {
     "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
   };
 
-  public static void Init(int totalMs, int bpm, string[] names, string[] types, int[] channels) {
+  public static void Init(int totalMs, int bpm, string title, string artist, string[] names, string[] types, int[] channels) {
     TotalMs = totalMs;
     Bpm = bpm;
+    Title = title;
+    Artist = artist;
     Tracks = new TrackState[names.Length];
     for (int i = 0; i < names.Length; i++) {
       Tracks[i] = new TrackState {
@@ -176,16 +184,22 @@ public class TrackState {
 
       sb.AppendLine(Border);
       sb.AppendLine(BoxRow("POWERSHELL MUSIC MAKER"));
+      if (!string.IsNullOrEmpty(Title)) {
+        sb.AppendLine(BoxRow("TITLE : " + Title));
+      }
+      if (!string.IsNullOrEmpty(Artist)) {
+        sb.AppendLine(BoxRow("ARTIST: " + Artist));
+      }
 
       int progLen = 20;
       int filled = (int)(progress * progLen);
       string progBar = "[" + new string('=', filled) + (filled < progLen ? ">" : "") + new string(' ', Math.Max(0, progLen - filled - (filled < progLen ? 1 : 0))) + "]";
-      string timeStr = string.Format("TIME: {0:D2}:{1:D2} / {2:D2}:{3:D2}  {4} {5,4:P0}",
+      string timeStr = string.Format("TIME : {0:D2}:{1:D2} / {2:D2}:{3:D2}  {4} {5,4:P0}",
         (elapsedMs / 1000) / 60, (elapsedMs / 1000) % 60,
         (TotalMs / 1000) / 60, (TotalMs / 1000) % 60,
         progBar, progress);
       sb.AppendLine(BoxRow(timeStr));
-      sb.AppendLine(BoxRow(string.Format("BPM : {0}", Bpm)));
+      sb.AppendLine(BoxRow(string.Format("BPM  : {0}", Bpm)));
       sb.AppendLine(Border);
       sb.AppendLine(BoxRow("WAVEFORM"));
 
@@ -272,10 +286,12 @@ public class TrackState {
   L.push('}');
 
   if (visualizer) {
+    const safeTitle = ascii(title).replace(/'/g, "''");
+    const safeArtist = ascii(artist).replace(/'/g, "''");
     const trackNames = p.tracks.map((t) => `'${ascii(t.name).replace(/'/g, "''")}'`).join(', ');
     const trackTypes = p.tracks.map((t) => `'${t.output.toUpperCase()}'`).join(', ');
     const trackChannels = p.tracks.map((t) => t.channel).join(', ');
-    L.push(`[PsMusic]::Init(${tl.endMs}, ${p.bpm}, @(${trackNames}), @(${trackTypes}), @(${trackChannels}))`);
+    L.push(`[PsMusic]::Init(${tl.endMs}, ${p.bpm}, '${safeTitle}', '${safeArtist}', @(${trackNames}), @(${trackTypes}), @(${trackChannels}))`);
   }
 
   L.push('# Wait until the absolute time with Start-Sleep (no accumulated drift)');

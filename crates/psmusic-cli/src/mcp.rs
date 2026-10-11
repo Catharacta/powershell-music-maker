@@ -229,6 +229,8 @@ fn get_tool_definitions() -> Value {
                 "properties": {
                     "file_path": { "type": "string", "description": "Project file path (optional)" },
                     "output_path": { "type": "string", "description": "Destination .ps1 file path (optional)" },
+                    "title": { "type": "string", "description": "Song title displayed in the visualizer (optional)" },
+                    "artist": { "type": "string", "description": "Artist name displayed in the visualizer (optional)" },
                     "visualizer": { "type": "boolean", "description": "Enable ANSI/ASCII console visualizer (default true)" }
                 }
             }
@@ -442,8 +444,29 @@ fn call_tool(name: &str, args: Value) -> (bool, String) {
             };
 
             let visualizer = args.get("visualizer").and_then(|v| v.as_bool()).unwrap_or(true);
+            let title = args
+                .get("title")
+                .and_then(|v| v.as_str())
+                .map(String::from)
+                .or_else(|| {
+                    path.file_stem()
+                        .and_then(|s| s.to_str())
+                        .map(String::from)
+                });
+            let artist = args
+                .get("artist")
+                .and_then(|v| v.as_str())
+                .map(String::from);
             let tl = build_timeline(&proj, TimelineOptions::default());
-            let script = generate_script(&proj, &tl, GeneratorOptions { visualizer });
+            let script = generate_script(
+                &proj,
+                &tl,
+                GeneratorOptions {
+                    visualizer,
+                    title,
+                    artist,
+                },
+            );
 
             if let Some(out_p_str) = args.get("output_path").and_then(|v| v.as_str()) {
                 let out_p = PathBuf::from(out_p_str);

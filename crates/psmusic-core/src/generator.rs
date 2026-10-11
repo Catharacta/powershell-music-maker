@@ -16,14 +16,20 @@ fn ascii(s: &str) -> String {
         .collect()
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct GeneratorOptions {
     pub visualizer: bool,
+    pub title: Option<String>,
+    pub artist: Option<String>,
 }
 
 impl Default for GeneratorOptions {
     fn default() -> Self {
-        Self { visualizer: true }
+        Self {
+            visualizer: true,
+            title: None,
+            artist: None,
+        }
     }
 }
 
@@ -116,6 +122,8 @@ public class TrackState {
             r##"  public static TrackState[] Tracks;
   public static int TotalMs;
   public static int Bpm;
+  public static string Title;
+  public static string Artist;
   public static Stopwatch Sw;
   private static Thread RenderThread;
   private static volatile bool Running = false;
@@ -123,9 +131,11 @@ public class TrackState {
     "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"
   };
 
-  public static void Init(int totalMs, int bpm, string[] names, string[] types, int[] channels) {
+  public static void Init(int totalMs, int bpm, string title, string artist, string[] names, string[] types, int[] channels) {
     TotalMs = totalMs;
     Bpm = bpm;
+    Title = title;
+    Artist = artist;
     Tracks = new TrackState[names.Length];
     for (int i = 0; i < names.Length; i++) {
       Tracks[i] = new TrackState {
@@ -213,16 +223,22 @@ public class TrackState {
 
       sb.AppendLine(Border);
       sb.AppendLine(BoxRow("POWERSHELL MUSIC MAKER"));
+      if (!string.IsNullOrEmpty(Title)) {
+        sb.AppendLine(BoxRow("TITLE : " + Title));
+      }
+      if (!string.IsNullOrEmpty(Artist)) {
+        sb.AppendLine(BoxRow("ARTIST: " + Artist));
+      }
 
       int progLen = 20;
       int filled = (int)(progress * progLen);
       string progBar = "[" + new string('=', filled) + (filled < progLen ? ">" : "") + new string(' ', Math.Max(0, progLen - filled - (filled < progLen ? 1 : 0))) + "]";
-      string timeStr = string.Format("TIME: {0:D2}:{1:D2} / {2:D2}:{3:D2}  {4} {5,4:P0}",
+      string timeStr = string.Format("TIME : {0:D2}:{1:D2} / {2:D2}:{3:D2}  {4} {5,4:P0}",
         (elapsedMs / 1000) / 60, (elapsedMs / 1000) % 60,
         (TotalMs / 1000) / 60, (TotalMs / 1000) % 60,
         progBar, progress);
       sb.AppendLine(BoxRow(timeStr));
-      sb.AppendLine(BoxRow(string.Format("BPM : {0}", Bpm)));
+      sb.AppendLine(BoxRow(string.Format("BPM  : {0}", Bpm)));
       sb.AppendLine(Border);
       sb.AppendLine(BoxRow("WAVEFORM"));
 
@@ -346,10 +362,23 @@ public class TrackState {
             .collect::<Vec<_>>()
             .join(", ");
 
+        let safe_title = options
+            .title
+            .as_deref()
+            .map(|t| ascii(t).replace('\'', "''"))
+            .unwrap_or_default();
+        let safe_artist = options
+            .artist
+            .as_deref()
+            .map(|a| ascii(a).replace('\'', "''"))
+            .unwrap_or_default();
+
         lines.push(format!(
-            "[PsMusic]::Init({}, {}, @({}), @({}), @({}))",
+            "[PsMusic]::Init({}, {}, '{}', '{}', @({}), @({}), @({}))",
             tl.end_ms.round() as i64,
             p.bpm.round() as i64,
+            safe_title,
+            safe_artist,
             track_names,
             track_types,
             track_channels

@@ -108,9 +108,10 @@
 
   async function save() {
     try {
+      const defaultName = (app.scriptTitle || 'music') + '.ps1';
       const filePath = await dialogSave({
         filters: [{ name: 'PowerShell Script', extensions: ['ps1'] }],
-        defaultPath: 'music.ps1'
+        defaultPath: defaultName
       });
       if (filePath) {
         // PowerShell 5.1 でも文字化けしないよう UTF-8 BOM 付きで保存
@@ -405,17 +406,37 @@
 
   {#if app.showScript}
     <div class="modal">
-      <div class="panel">
-        <div class="row">
+      <div class="panel scriptpanel">
+        <div class="row script-header">
           <h2>music.ps1</h2>
           <span class="spacer"></span>
+          <button class="sq-btn" onclick={() => (app.showScript = false)} title={t('script_modal_close')}>×</button>
+        </div>
+        <div class="row script-toolbar">
+          <label class="title-opt">
+            <span>{t('script_modal_song_title')}</span>
+            <input
+              type="text"
+              value={app.scriptTitle}
+              oninput={(e) => (app.customTitle = e.currentTarget.value)}
+              placeholder="Title"
+            />
+          </label>
+          <label class="title-opt">
+            <span>{t('script_modal_artist')}</span>
+            <input
+              type="text"
+              bind:value={app.scriptArtist}
+              placeholder="Artist"
+            />
+          </label>
           <label class="check-opt">
             <input type="checkbox" bind:checked={app.visualizer} />
             {t('settings_visualizer')}
           </label>
+          <span class="spacer"></span>
           <button onclick={copy}>{copied ? t('script_modal_copied') : t('script_modal_copy')}</button>
-          <button onclick={save}>{t('script_modal_save')}</button>
-          <button onclick={() => (app.showScript = false)}>{t('script_modal_close')}</button>
+          <button class="action-btn" onclick={save}>{t('script_modal_save')}</button>
         </div>
         <textarea readonly value={app.script}></textarea>
       </div>
@@ -842,6 +863,18 @@
     height: min(600px, 90vh);
     width: min(640px, 94vw);
   }
+  .scriptpanel {
+    width: min(1000px, 94vw);
+    height: 84vh;
+  }
+  .script-header {
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 8px;
+  }
+  .script-toolbar {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
   .midi-meta {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -897,6 +930,26 @@
     border: var(--border);
     background: var(--paper);
     resize: none;
+  }
+  .title-opt {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-family: var(--font-head);
+    background: var(--paper);
+    padding: 4px 10px;
+    border: var(--border);
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .title-opt input {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: bold;
+    padding: 3px 6px;
+    border: 2px solid var(--ink);
+    background: #ffffff;
+    width: 140px;
   }
   .check-opt {
     display: inline-flex;

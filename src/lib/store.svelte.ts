@@ -109,16 +109,25 @@ class AppState {
   currentFilePath = $state<string | null>(null);
   isDirty = $state(false);
 
-  activeTrack = $derived(this.project.tracks.find((t) => t.id === this.activeTrackId) ?? this.project.tracks[0]);
-  timeline = $derived(buildTimeline(this.project, { beepOverlap: settings.script.beepOverlap }));
-  script = $derived(generateScript(this.project, this.timeline, { visualizer: this.visualizer }));
-  totalTicks = $derived(this.project.bars * BEATS_PER_BAR * PPQ);
-
   projectName = $derived(
     this.currentFilePath
       ? this.currentFilePath.split(/[\\/]/).pop()?.replace(/\.psmm$/i, '') || 'Untitled'
       : 'Untitled'
   );
+  customTitle = $state<string | null>(null);
+  scriptTitle = $derived(this.customTitle !== null ? this.customTitle : this.projectName);
+  scriptArtist = $state<string>('');
+
+  activeTrack = $derived(this.project.tracks.find((t) => t.id === this.activeTrackId) ?? this.project.tracks[0]);
+  timeline = $derived(buildTimeline(this.project, { beepOverlap: settings.script.beepOverlap }));
+  script = $derived(
+    generateScript(this.project, this.timeline, {
+      visualizer: this.visualizer,
+      title: this.scriptTitle,
+      artist: this.scriptArtist,
+    })
+  );
+  totalTicks = $derived(this.project.bars * BEATS_PER_BAR * PPQ);
 
   setActiveTrack(id: number) {
     if (this.activeTrackId !== id) {
@@ -439,6 +448,8 @@ class AppState {
     this.stop();
     this.clearSelection();
     this.currentFilePath = null;
+    this.customTitle = null;
+    this.scriptArtist = '';
     this.project = {
       bpm: settings.editor.defaultBpm,
       bars: settings.editor.defaultBars,
@@ -463,6 +474,8 @@ class AppState {
     this.stop();
     this.clearSelection();
     this.currentFilePath = filePath;
+    this.customTitle = null;
+    this.scriptArtist = '';
 
     let maxId = 100;
     for (const t of newProject.tracks) {

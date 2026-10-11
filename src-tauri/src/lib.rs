@@ -40,7 +40,13 @@ fn list_midi_devices() -> Vec<String> {
 }
 
 #[tauri::command]
-fn generate_ps_script(project: Project, visualizer: Option<bool>, beep_overlap: Option<String>) -> Result<String, String> {
+fn generate_ps_script(
+    project: Project,
+    visualizer: Option<bool>,
+    title: Option<String>,
+    artist: Option<String>,
+    beep_overlap: Option<String>,
+) -> Result<String, String> {
     let overlap = match beep_overlap.as_deref() {
         Some("ignore") => BeepOverlap::Ignore,
         _ => BeepOverlap::Latest,
@@ -51,6 +57,8 @@ fn generate_ps_script(project: Project, visualizer: Option<bool>, beep_overlap: 
         &tl,
         GeneratorOptions {
             visualizer: visualizer.unwrap_or(true),
+            title,
+            artist,
         },
     );
     Ok(script)

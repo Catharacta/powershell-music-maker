@@ -112,6 +112,8 @@ export const translations = {
 
     // スクリプトプレビューモーダル
     script_modal_title: '生成された PowerShell スクリプト',
+    script_modal_song_title: '曲名 (タイトル)',
+    script_modal_artist: 'アーティスト',
     script_modal_copy: 'コピー',
     script_modal_copied: 'コピー完了!',
     script_modal_save: '保存 (.ps1)',
@@ -259,6 +261,8 @@ export const translations = {
 
     // Script preview modal
     script_modal_title: 'Generated PowerShell Script',
+    script_modal_song_title: 'Song Title',
+    script_modal_artist: 'Artist',
     script_modal_copy: 'Copy',
     script_modal_copied: 'Copied!',
     script_modal_save: 'Save (.ps1)',

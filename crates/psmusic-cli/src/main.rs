@@ -33,6 +33,14 @@ enum Commands {
         #[arg(long)]
         no_visualizer: bool,
 
+        /// Custom song title for visualizer (defaults to input file name)
+        #[arg(long)]
+        title: Option<String>,
+
+        /// Custom artist name for visualizer
+        #[arg(long)]
+        artist: Option<String>,
+
         /// Beep overlap behavior: 'latest' (cut off previous note) or 'ignore' (keep previous note)
         #[arg(long, default_value = "latest")]
         beep_overlap: String,
@@ -139,10 +147,23 @@ fn main() -> Result<()> {
             input,
             output,
             no_visualizer,
+            title,
+            artist,
             beep_overlap,
         } => {
             let content = read_input_string(&input)?;
             let project = parse_project_json(&content).map_err(|e| anyhow::anyhow!("{e}"))?;
+
+            let song_title = title.or_else(|| {
+                if input != "-" {
+                    std::path::Path::new(&input)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .map(String::from)
+                } else {
+                    None
+                }
+            });
 
             let overlap = match beep_overlap.to_lowercase().as_str() {
                 "ignore" => BeepOverlap::Ignore,
@@ -160,6 +181,8 @@ fn main() -> Result<()> {
                 &tl,
                 GeneratorOptions {
                     visualizer: !no_visualizer,
+                    title: song_title,
+                    artist,
                 },
             );
 
