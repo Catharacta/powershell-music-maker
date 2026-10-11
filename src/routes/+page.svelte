@@ -476,7 +476,26 @@
       {t('piano_roll_hint')}
     </div>
     <div class="roll"><PianoRoll /></div>
-    {#if app.status}<div class="result ng">{app.status}</div>{/if}
+    {#if app.status}
+      <div class="toast-status {app.statusType}">
+        <div class="toast-content">
+          {#if app.statusType === 'ng'}
+            <AlertTriangle size={15} strokeWidth={2.5} class="toast-icon" />
+          {:else if app.statusType === 'ok'}
+            <CheckSquare size={15} strokeWidth={2.5} class="toast-icon" />
+          {/if}
+          <span>{app.status}</span>
+        </div>
+        <button
+          type="button"
+          class="toast-close-btn"
+          onclick={() => app.clearStatus()}
+          aria-label="Close status"
+        >
+          <X size={13} strokeWidth={3} />
+        </button>
+      </div>
+    {/if}
   </main>
 
   {#if app.showScript}
@@ -1090,5 +1109,73 @@
   }
   .settings-btn:hover {
     background: var(--c-beep);
+  }
+
+  .toast-status {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border: var(--border);
+    box-shadow: 4px 4px 0 var(--ink);
+    background: var(--paper);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink);
+    border-radius: 0;
+    max-width: 500px;
+    animation: toast-slide 0.15s ease-out;
+  }
+  @keyframes toast-slide {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  .toast-status.ok {
+    background: #d4ffd4;
+  }
+  .toast-status.ng {
+    background: #ffd4d4;
+  }
+  .toast-status.info {
+    background: #d4e8ff;
+  }
+  .toast-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  :global(.toast-icon) {
+    flex-shrink: 0;
+  }
+  .toast-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
+    padding: 3px;
+    cursor: pointer;
+    line-height: 1;
+    border-radius: 0;
+  }
+  .toast-close-btn:hover {
+    background: var(--c-accent);
+  }
+  .toast-close-btn:active {
+    box-shadow: none;
+    transform: translate(2px, 2px);
   }
 </style>

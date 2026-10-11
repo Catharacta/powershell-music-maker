@@ -347,12 +347,15 @@
     | {
         mode: 'resize';
         note: Note;
+        initialDuration: number;
+        startX: number;
       }
     | {
         mode: 'create';
         note: Note;
         initialDuration: number;
         startX: number;
+        hasMoved: boolean;
       }
     | {
         mode: 'box-select';
@@ -365,6 +368,20 @@
       };
 
   let drag: Drag | null = null;
+  let cursorStyle = $state<'crosshair' | 'pointer' | 'move' | 'ew-resize' | 'default'>('crosshair');
+
+  function isResizeArea(x: number, noteLeft: number, noteWidth: number): boolean {
+    const right = noteLeft + noteWidth;
+    if (x > right + 6 || x < noteLeft) return false;
+    // ペンシルツール(draw)時は、ノートの左端わずか10px以外はすべて長さを変えられる！
+    if (app.toolMode === 'draw') {
+      const moveHandleWidth = Math.min(10, noteWidth * 0.25);
+      return (x - noteLeft) >= moveHandleWidth;
+    }
+    // 選択ツール(select)時は右半分
+    const threshold = Math.max(12, Math.min(noteWidth * 0.45, 30));
+    return (right - x) <= threshold;
+  }
 
   function local(e: PointerEvent) {
     const r = canvas.getBoundingClientRect();
@@ -389,6 +406,7 @@
 
   function down(e: PointerEvent) {
     if (e.button !== 0) return;
+    e.preventDefault();
     const { x, y } = local(e);
     const n = hit(x, y);
 
@@ -399,34 +417,40 @@
 
       const nx = n.startTick * PX;
       const nw = Math.max(6, n.durationTick * PX);
-      const right = nx + nw;
-      const resizeThreshold = Math.min(8, Math.max(3, nw * 0.4));
-      const isResize = (right - x) <= resizeThreshold;
+      const isResize = isResizeArea(x, nx, nw);
 
       if (isResize) {
-        if (!isSelected && !isShift) {
-          app.selectNotes([n.id]);
-        }
         drag = {
           mode: 'resize',
-          note: n
+          note: n,
+          initialDuration: n.durationTick,
+          startX: x
         };
       } else {
-        // 移動または複製移動
+        // 移動または選択
         if (isShift) {
           app.toggleNoteSelection(n.id);
           if (!app.isNoteSelected(n.id)) {
             draw();
             return;
           }
-        } else if (!isSelected) {
-          app.selectNotes([n.id]);
+        } else if (app.toolMode === 'select') {
+          if (!isSelected) {
+            app.selectNotes([n.id]);
+          }
+        } else {
+          // 描画モード(pencil)では、触ったノートを選択状態(ピンク)にしない
+          if (!isSelected) {
+            app.clearSelection();
+          }
         }
 
-        // Alt+ドラッグで選択中ノートを複製して移動
+        // Alt+ドラッグで複製して移動
         if (isAlt) {
-          const selectedNotes = app.activeTrack.notes.filter((item) => app.isNoteSelected(item.id));
-          const duplicated: Note[] = selectedNotes.map((item) => ({
+          const targetNotes = app.selectedNoteIds.length > 0 && isSelected
+            ? app.activeTrack.notes.filter((item) => app.isNoteSelected(item.id))
+            : [n];
+          const duplicated: Note[] = targetNotes.map((item) => ({
             id: nextId(),
             startTick: item.startTick,
             durationTick: item.durationTick,
@@ -434,17 +458,21 @@
             velocity: item.velocity
           }));
           app.activeTrack.notes.push(...duplicated);
-          app.selectNotes(duplicated.map((item) => item.id));
+          if (app.toolMode === 'select' || isShift) {
+            app.selectNotes(duplicated.map((item) => item.id));
+          }
         }
 
-        const snapshots: NoteSnapshot[] = app.activeTrack.notes
-          .filter((item) => app.isNoteSelected(item.id))
-          .map((item) => ({
-            id: item.id,
-            startTick: item.startTick,
-            pitch: item.pitch,
-            durationTick: item.durationTick
-          }));
+        const targetNotes = app.selectedNoteIds.length > 0 && isSelected
+          ? app.activeTrack.notes.filter((item) => app.isNoteSelected(item.id))
+          : [n];
+
+        const snapshots: NoteSnapshot[] = targetNotes.map((item) => ({
+          id: item.id,
+          startTick: item.startTick,
+          pitch: item.pitch,
+          durationTick: item.durationTick
+        }));
 
         drag = {
           mode: 'move',
@@ -468,31 +496,37 @@
           isAdditive: e.shiftKey
         };
       } else {
+        // 空白クリックで余計な選択はクリア
         app.clearSelection();
         const pitch = PMAX - Math.floor(y / ROW);
         if (pitch < PMIN || pitch > PMAX) return;
         const startTick = snap(x / PX);
         if (startTick >= app.totalTicks) return;
-        const durationTick = Math.max(1, app.effectiveNoteLength);
+        const defaultDur = Math.max(1, app.effectiveNoteLength);
+        const q = Math.max(1, app.quant);
+        const initialShowDur = q <= 1 ? 1 : q;
         const note: Note = {
           id: nextId(),
           startTick,
-          durationTick,
+          durationTick: initialShowDur,
           pitch,
           velocity: 100
         };
         app.activeTrack.notes.push(note);
-        app.selectNotes([note.id]);
+        // ★重要: app.selectNotes([note.id]) は呼ばない！配置されたノートは通常色（ピンクにしない）
         drag = {
           mode: 'create',
           note,
-          initialDuration: durationTick,
-          startX: x
+          initialDuration: defaultDur,
+          startX: x,
+          hasMoved: false
         };
       }
     }
     draw();
-    canvas.setPointerCapture(e.pointerId);
+    try {
+      canvas.setPointerCapture(e.pointerId);
+    } catch {}
   }
 
   function move(e: PointerEvent) {
@@ -531,15 +565,42 @@
       }
     } else if (drag.mode === 'resize') {
       const q = Math.max(1, app.quant);
-      const end = Math.ceil((x / PX) / q) * q;
-      drag.note.durationTick = Math.max(q, end - drag.note.startTick);
-    } else if (drag.mode === 'create') {
-      const q = Math.max(1, app.quant);
-      const end = Math.ceil((x / PX) / q) * q;
-      if (x - drag.startX > 5) {
-        drag.note.durationTick = Math.max(drag.initialDuration, end - drag.note.startTick);
+      const deltaTick = (x - drag.startX) / PX;
+      let snappedDelta: number;
+      if (q <= 1) {
+        snappedDelta = Math.round(deltaTick);
       } else {
-        drag.note.durationTick = drag.initialDuration;
+        snappedDelta = Math.round(deltaTick / q) * q;
+      }
+      const minDur = q <= 1 ? 1 : q;
+      const newDur = Math.max(minDur, drag.initialDuration + snappedDelta);
+      const noteToResize = drag.note;
+      noteToResize.durationTick = newDur;
+      const target = app.activeTrack.notes.find((m) => m.id === noteToResize.id);
+      if (target) {
+        target.durationTick = newDur;
+      }
+    } else if (drag.mode === 'create') {
+      const dx = x - drag.startX;
+      if (Math.abs(dx) > 3) {
+        drag.hasMoved = true;
+      }
+      if (drag.hasMoved) {
+        const q = Math.max(1, app.quant);
+        const currentTick = x / PX;
+        let endTick: number;
+        if (q <= 1) {
+          endTick = Math.max(drag.note.startTick + 1, Math.round(currentTick));
+        } else {
+          endTick = Math.max(drag.note.startTick + q, Math.ceil(currentTick / q) * q);
+        }
+        const newDur = Math.max(q <= 1 ? 1 : q, endTick - drag.note.startTick);
+        const noteToCreate = drag.note;
+        noteToCreate.durationTick = newDur;
+        const target = app.activeTrack.notes.find((m) => m.id === noteToCreate.id);
+        if (target) {
+          target.durationTick = newDur;
+        }
       }
     } else if (drag.mode === 'box-select') {
       drag.currentX = x;
@@ -579,13 +640,30 @@
     if (drag) {
       move(e);
       hoveredNoteIssue = null;
+      if (drag.mode === 'resize' || drag.mode === 'create') {
+        cursorStyle = 'ew-resize';
+      } else if (drag.mode === 'move') {
+        cursorStyle = 'move';
+      } else if (drag.mode === 'box-select') {
+        cursorStyle = 'crosshair';
+      }
       return;
     }
-    // ホバー検出 (Beep警告があるノートに乗っているか)
-    if (app.activeTrack.output === 'beep') {
-      const { x, y } = local(e);
-      const n = hit(x, y);
-      if (n) {
+
+    const { x, y } = local(e);
+    const n = hit(x, y);
+
+    if (n) {
+      const nx = n.startTick * PX;
+      const nw = Math.max(6, n.durationTick * PX);
+      if (isResizeArea(x, nx, nw)) {
+        cursorStyle = 'ew-resize';
+      } else {
+        cursorStyle = app.toolMode === 'select' ? 'pointer' : 'move';
+      }
+
+      // ホバー検出 (Beep警告があるノートに乗っているか)
+      if (app.activeTrack.output === 'beep') {
         const issues = app.beepIssues.get(n.id);
         if (issues && issues.length > 0) {
           const scrollLeft = scroller ? scroller.scrollLeft : 0;
@@ -598,6 +676,8 @@
           return;
         }
       }
+    } else {
+      cursorStyle = app.toolMode === 'select' ? 'default' : 'crosshair';
     }
     hoveredNoteIssue = null;
   }
@@ -609,6 +689,20 @@
         if (dist < 4 && !drag.isAdditive) {
           app.clearSelection();
         }
+      } else if (drag.mode === 'create') {
+        const noteToFinish = drag.note;
+        const target = app.activeTrack.notes.find((m) => m.id === noteToFinish.id);
+        if (drag.hasMoved) {
+          app.lastUsedNoteLength = noteToFinish.durationTick;
+        } else {
+          noteToFinish.durationTick = drag.initialDuration;
+          if (target) {
+            target.durationTick = drag.initialDuration;
+          }
+          app.lastUsedNoteLength = drag.initialDuration;
+        }
+      } else if (drag.mode === 'resize') {
+        app.lastUsedNoteLength = drag.note.durationTick;
       }
       drag = null;
       draw();
@@ -646,9 +740,13 @@
         bind:this={canvas}
         width={viewportWidth}
         height={height}
+        style="cursor: {cursorStyle};"
         onpointerdown={down}
         onpointermove={handlePointerMove}
-        onpointerleave={() => (hoveredNoteIssue = null)}
+        onpointerleave={() => {
+          hoveredNoteIssue = null;
+          cursorStyle = 'crosshair';
+        }}
         onpointerup={up}
         oncontextmenu={del}
       ></canvas>
@@ -707,7 +805,8 @@
   }
   canvas {
     display: block;
-    cursor: crosshair;
+    touch-action: none;
+    user-select: none;
   }
   .beep-warn-popup {
     position: absolute;

@@ -29,12 +29,16 @@ export const setNextId = (id: number) => {
   if (id > seq) seq = id;
 };
 
+const SESSION_PROJECT_KEY = 'psmm_session_project';
+
 function demo(): Project {
   const q = PPQ / 2;
+  // Beepの間隔(約20ms)を確保するため、各音のdurationTickを220に設定(ギャップ20tick≒20.8ms)
+  const beepDur = Math.max(1, q - 20);
   const mel = [60, 62, 64, 65, 67, 65, 64, 62].map((pitch, i) => ({
     id: nextId(),
     startTick: i * q,
-    durationTick: q,
+    durationTick: beepDur,
     pitch,
     velocity: 100
   }));
@@ -53,6 +57,33 @@ function demo(): Project {
       { id: 2, name: 'CHORDS', output: 'gs', channel: 1, program: 0, volume: 100, mute: false, notes: chord }
     ]
   };
+}
+
+function loadSessionProject(): Project {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(SESSION_PROJECT_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && Array.isArray(parsed.tracks) && typeof parsed.bpm === 'number') {
+          let maxId = 100;
+          for (const tr of parsed.tracks) {
+            if (tr.id > maxId) maxId = tr.id;
+            if (Array.isArray(tr.notes)) {
+              for (const n of tr.notes) {
+                if (n.id > maxId) maxId = n.id;
+              }
+            }
+          }
+          setNextId(maxId);
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to restore session project:', e);
+    }
+  }
+  return initialProject();
 }
 
 function initialProject(): Project {
@@ -85,7 +116,7 @@ export interface ClipboardNote {
 }
 
 class AppState {
-  project = $state<Project>(initialProject());
+  project = $state<Project>(loadSessionProject());
   activeTrackId = $state(1);
   selectedNoteIds = $state<number[]>([]);
   clipboard = $state<ClipboardNote[] | null>(null);
@@ -94,6 +125,8 @@ class AppState {
   quant = $state(settings.editor.defaultQuant);
   /** 新規ノート長設定 ('grid' または tick数) */
   noteLengthChoice = $state<'grid' | number>('grid');
+  /** 直前に作成・変更したノート長 */
+  lastUsedNoteLength = $state<number>(PPQ / 4);
 
   effectiveNoteLength = $derived(
     this.noteLengthChoice === 'grid' ? Math.max(1, this.quant) : this.noteLengthChoice
@@ -105,6 +138,8 @@ class AppState {
   showScript = $state(false);
   visualizer = $state(settings.script.visualizer);
   status = $state('');
+  statusType = $state<'ok' | 'ng' | 'info'>('ok');
+  private statusTimer: ReturnType<typeof setTimeout> | null = null;
 
   currentFilePath = $state<string | null>(null);
   isDirty = $state(false);
@@ -140,6 +175,49 @@ class AppState {
     })
   );
   totalTicks = $derived(this.project.bars * BEATS_PER_BAR * PPQ);
+
+  constructor() {
+    $effect.root(() => {
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      $effect(() => {
+        // プロジェクト変更を追跡して自動保存
+        const json = JSON.stringify(this.project);
+        if (typeof localStorage !== 'undefined') {
+          if (timer) clearTimeout(timer);
+          timer = setTimeout(() => {
+            try {
+              localStorage.setItem(SESSION_PROJECT_KEY, json);
+            } catch (e) {
+              console.warn('Failed to auto-save session project:', e);
+            }
+          }, 300);
+        }
+      });
+    });
+  }
+
+  setStatus(msg: string, type: 'ok' | 'ng' | 'info' = 'ok', durationMs = 3500) {
+    if (this.statusTimer) {
+      clearTimeout(this.statusTimer);
+      this.statusTimer = null;
+    }
+    this.status = msg;
+    this.statusType = type;
+    if (msg && durationMs > 0) {
+      this.statusTimer = setTimeout(() => {
+        this.status = '';
+        this.statusTimer = null;
+      }, durationMs);
+    }
+  }
+
+  clearStatus() {
+    if (this.statusTimer) {
+      clearTimeout(this.statusTimer);
+      this.statusTimer = null;
+    }
+    this.status = '';
+  }
 
   setActiveTrack(id: number) {
     if (this.activeTrackId !== id) {
@@ -350,7 +428,7 @@ class AppState {
   optimizeBeepTrack(trackId: number) {
     const track = this.project.tracks.find((t) => t.id === trackId);
     if (!track || track.output !== 'beep' || track.notes.length === 0) {
-      this.status = t('status_no_beep_notes');
+      this.setStatus(t('status_no_beep_notes'), 'info');
       return;
     }
     const optimized = optimizeBeepNotes(
@@ -361,13 +439,13 @@ class AppState {
     );
     track.notes = optimized;
     this.clearSelection();
-    this.status = t('status_beep_optimized', { count: optimized.length });
+    this.setStatus(t('status_beep_optimized', { count: optimized.length }), 'ok');
   }
 
   optimizeAllBeepTracks() {
     const beepTracks = this.project.tracks.filter((t) => t.output === 'beep' && t.notes.length > 0);
     if (beepTracks.length === 0) {
-      this.status = t('status_no_beep_notes');
+      this.setStatus(t('status_no_beep_notes'), 'info');
       return;
     }
     let totalCount = 0;
@@ -382,7 +460,7 @@ class AppState {
       totalCount += optimized.length;
     }
     this.clearSelection();
-    this.status = t('status_beep_optimized', { count: totalCount });
+    this.setStatus(t('status_beep_optimized', { count: totalCount }), 'ok');
   }
 
   loadMidiAsNew(info: import('./midi').ParsedMidiInfo) {
@@ -517,7 +595,7 @@ class AppState {
       ]
     };
     this.setActiveTrack(this.project.tracks[0].id);
-    this.status = t('status_new_project');
+    this.setStatus(t('status_new_project'), 'info');
   }
 
   loadProject(newProject: Project, filePath: string | null = null) {
@@ -564,7 +642,7 @@ class AppState {
       await this.openProjectFile(selected);
     } catch (e) {
       console.error('Failed to open project dialog:', e);
-      this.status = `${t('status_open_failed')}: ${e}`;
+      this.setStatus(`${t('status_open_failed')}: ${e}`, 'ng');
       alert(`${t('status_open_failed')}: ${e}`);
     }
   }
@@ -578,10 +656,10 @@ class AppState {
         throw new Error(t('status_invalid_format'));
       }
       this.loadProject(proj, filePath);
-      this.status = `${t('status_opened_project')}: ${this.projectName}`;
+      this.setStatus(`${t('status_opened_project')}: ${this.projectName}`, 'ok');
     } catch (e) {
       console.error('Failed to load project:', e);
-      this.status = `${t('status_open_failed')}: ${e}`;
+      this.setStatus(`${t('status_open_failed')}: ${e}`, 'ng');
       alert(`${t('status_open_failed')}: ${e}`);
     }
   }
@@ -608,7 +686,7 @@ class AppState {
       return ok;
     } catch (e) {
       console.error('Failed to save project as:', e);
-      this.status = `${t('status_save_failed')}: ${e}`;
+      this.setStatus(`${t('status_save_failed')}: ${e}`, 'ng');
       alert(`${t('status_save_failed')}: ${e}`);
       return false;
     }
@@ -623,11 +701,11 @@ class AppState {
       };
       const jsonStr = JSON.stringify(fileData, null, 2);
       await writeTextFile(filePath, jsonStr);
-      this.status = `${t('status_saved_project')}: ${filePath.split(/[\\/]/).pop()}`;
+      this.setStatus(`${t('status_saved_project')}: ${filePath.split(/[\\/]/).pop()}`, 'ok');
       return true;
     } catch (e) {
       console.error('Failed to write project file:', e);
-      this.status = `${t('status_save_failed')}: ${e}`;
+      this.setStatus(`${t('status_save_failed')}: ${e}`, 'ng');
       alert(`${t('status_save_failed')}: ${e}`);
       return false;
     }
