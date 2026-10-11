@@ -11,7 +11,9 @@ import { onMount } from 'svelte';
   const pitches = Array.from({ length: PMAX - PMIN + 1 }, (_, i) => PMAX - i);
 
   let canvas: HTMLCanvasElement;
-  const width = $derived(app.totalTicks * PX);
+  let scroller: HTMLDivElement;
+  let viewportWidth = $state(1200);
+  const totalWidth = $derived(app.totalTicks * PX);
   const height = (PMAX - PMIN + 1) * ROW;
 
   function css(name: string) {
@@ -22,8 +24,10 @@ import { onMount } from 'svelte';
     if (!canvas) return;
     const ctx = canvas.getContext('2d')!;
     const ink = css('--ink');
-    const W = width;
+    const scrollLeft = scroller ? scroller.scrollLeft : 0;
+    const W = viewportWidth;
     ctx.clearRect(0, 0, W, height);
+
     // 行(黒鍵は薄く塗る)
     for (let p = PMAX; p >= PMIN; p--) {
       const y = (PMAX - p) * ROW;
@@ -32,21 +36,29 @@ import { onMount } from 'svelte';
       ctx.fillStyle = ink;
       ctx.fillRect(0, y + ROW - 1, W, p % 12 === 0 ? 2 : 1);
     }
+
     // 縦線: 小節=太, 拍=中, グリッド=細
     // グリッド線間隔が狭すぎる (6px未満) 場合はグリッド細線を間引く
     const quantStep = Math.max(1, app.quant);
     const drawGridLines = app.quant > 1 && (quantStep * PX >= 6);
     const step = drawGridLines ? quantStep : PPQ;
 
-    for (let t = 0; t <= app.totalTicks; t += step) {
-      const x = Math.round(t * PX);
+    // 可視範囲の tick 範囲を計算して描画をカリング
+    const minTick = Math.max(0, Math.floor((scrollLeft - 10) / PX));
+    const maxTick = Math.min(app.totalTicks, Math.ceil((scrollLeft + W + 10) / PX));
+    const startTick = Math.floor(minTick / step) * step;
+
+    for (let t = startTick; t <= maxTick; t += step) {
+      const screenX = Math.round(t * PX - scrollLeft);
+      if (screenX < -5 || screenX > W + 5) continue;
       const bar = t % (PPQ * BEATS_PER_BAR) === 0;
       const beat = t % PPQ === 0;
       ctx.fillStyle = ink;
       ctx.globalAlpha = bar ? 1 : beat ? 0.7 : 0.25;
-      ctx.fillRect(x, 0, bar ? 4 : beat ? 2 : 1, height);
+      ctx.fillRect(screenX, 0, bar ? 4 : beat ? 2 : 1, height);
       ctx.globalAlpha = 1;
     }
+
     // ノート(非アクティブトラックは薄く)
     for (const tr of app.project.tracks) {
       if (tr.mute) continue;
@@ -54,10 +66,17 @@ import { onMount } from 'svelte';
       const col = css(tr.output === 'beep' ? '--c-beep' : '--c-gs');
       ctx.globalAlpha = active ? 1 : 0.45;
       for (const n of tr.notes) {
-        const isSelected = active && app.isNoteSelected(n.id);
-        const x = n.startTick * PX;
-        const y = (PMAX - n.pitch) * ROW;
+        const absX = n.startTick * PX;
         const w = Math.max(6, n.durationTick * PX);
+
+        // 画面外のノートはスキップして高速化
+        if (absX + w < scrollLeft - 20 || absX > scrollLeft + W + 20) {
+          continue;
+        }
+
+        const isSelected = active && app.isNoteSelected(n.id);
+        const x = absX - scrollLeft;
+        const y = (PMAX - n.pitch) * ROW;
 
         if (active) {
           ctx.fillStyle = ink;
@@ -91,7 +110,7 @@ import { onMount } from 'svelte';
 
     // 範囲選択ボックス (ラバーバンド)
     if (drag && drag.mode === 'box-select') {
-      const bx = Math.min(drag.startX, drag.currentX);
+      const bx = Math.min(drag.startX, drag.currentX) - scrollLeft;
       const by = Math.min(drag.startY, drag.currentY);
       const bw = Math.abs(drag.currentX - drag.startX);
       const bh = Math.abs(drag.currentY - drag.startY);
@@ -110,26 +129,51 @@ import { onMount } from 'svelte';
     // 再生位置
     if (app.playheadMs >= 0) {
       const tick = (app.playheadMs * app.project.bpm * PPQ) / 60000;
-      ctx.fillStyle = css('--c-play');
-      ctx.fillRect(Math.round(tick * PX) - 2, 0, 4, height);
+      const sx = Math.round(tick * PX - scrollLeft);
+      if (sx >= -5 && sx <= W + 5) {
+        ctx.fillStyle = css('--c-play');
+        ctx.fillRect(sx - 2, 0, 4, height);
+      }
     }
   }
 
+  function handleScroll() {
+    draw();
+  }
+
   $effect(() => {
-    // 依存: プロジェクト・グリッド・再生位置・アクティブトラック・表示倍率・選択ノート・ノート長
-    void width;
+    // 依存: プロジェクト・グリッド・再生位置・アクティブトラック・表示倍率・選択ノート・ノート長・ビューポート幅
+    void totalWidth;
+    void viewportWidth;
     void app.pxPerTick;
     void app.selectedNoteIds;
     void app.quant;
     void app.effectiveNoteLength;
+    void app.playheadMs;
+    void app.activeTrack.notes;
     draw();
   });
 
-  let scroller: HTMLDivElement;
   onMount(() => {
     if (scroller) {
       // 初期スクロール位置: C5 (pitch 72) 付近を上部に合わせることで、C4〜C6 がちょうど視界に入る
       scroller.scrollTop = (PMAX - 72) * ROW;
+
+      const updateViewport = () => {
+        if (scroller) {
+          viewportWidth = Math.max(200, scroller.clientWidth - KEYW);
+        }
+      };
+      updateViewport();
+
+      const ro = new ResizeObserver(() => {
+        updateViewport();
+      });
+      ro.observe(scroller);
+
+      return () => {
+        ro.disconnect();
+      };
     }
   });
   // 再生位置が表示範囲の外に出たら、画面内に戻るようスクロールして追従する
@@ -275,7 +319,8 @@ import { onMount } from 'svelte';
 
   function local(e: PointerEvent) {
     const r = canvas.getBoundingClientRect();
-    return { x: e.clientX - r.left, y: e.clientY - r.top };
+    const scrollLeft = scroller ? scroller.scrollLeft : 0;
+    return { x: e.clientX - r.left + scrollLeft, y: e.clientY - r.top };
   }
   function hit(x: number, y: number) {
     const pitch = PMAX - Math.floor(y / ROW);
@@ -377,10 +422,12 @@ import { onMount } from 'svelte';
         app.clearSelection();
         const pitch = PMAX - Math.floor(y / ROW);
         if (pitch < PMIN || pitch > PMAX) return;
+        const startTick = snap(x / PX);
+        if (startTick >= app.totalTicks) return;
         const durationTick = Math.max(1, app.effectiveNoteLength);
         const note: Note = {
           id: nextId(),
-          startTick: snap(x / PX),
+          startTick,
           durationTick,
           pitch,
           velocity: 100
@@ -495,7 +542,8 @@ import { onMount } from 'svelte';
   function del(e: MouseEvent) {
     e.preventDefault();
     const r = canvas.getBoundingClientRect();
-    const n = hit(e.clientX - r.left, e.clientY - r.top);
+    const scrollLeft = scroller ? scroller.scrollLeft : 0;
+    const n = hit(e.clientX - r.left + scrollLeft, e.clientY - r.top);
     if (n) {
       if (app.isNoteSelected(n.id)) {
         app.deleteSelected();
@@ -508,8 +556,8 @@ import { onMount } from 'svelte';
   }
 </script>
 
-<div class="scroll" bind:this={scroller}>
-  <div class="inner">
+<div class="scroll" bind:this={scroller} onscroll={handleScroll}>
+  <div class="inner" style="min-width: {KEYW + Math.max(totalWidth, viewportWidth)}px; height: {height}px;">
     <div class="keys" style="width:{KEYW}px">
       {#each pitches as p (p)}
         <div class="key" class:black={isBlack(p)} style="height:{ROW}px">
@@ -517,15 +565,17 @@ import { onMount } from 'svelte';
         </div>
       {/each}
     </div>
-    <canvas
-      bind:this={canvas}
-      {width}
-      {height}
-      onpointerdown={down}
-      onpointermove={move}
-      onpointerup={up}
-      oncontextmenu={del}
-    ></canvas>
+    <div class="canvas-wrap" style="left: {KEYW}px; width: {viewportWidth}px; height: {height}px;">
+      <canvas
+        bind:this={canvas}
+        width={viewportWidth}
+        height={height}
+        onpointerdown={down}
+        onpointermove={move}
+        onpointerup={up}
+        oncontextmenu={del}
+      ></canvas>
+    </div>
   </div>
 </div>
 
@@ -536,10 +586,11 @@ import { onMount } from 'svelte';
     box-shadow: var(--shadow);
     background: var(--paper);
     height: 100%;
+    position: relative;
   }
   .inner {
     display: flex;
-    width: max-content;
+    position: relative;
   }
   .keys {
     position: sticky;
@@ -559,6 +610,13 @@ import { onMount } from 'svelte';
   .key.black {
     background: var(--ink);
     width: 70%;
+  }
+  .canvas-wrap {
+    position: sticky;
+    left: 70px;
+    z-index: 1;
+    flex: none;
+    overflow: hidden;
   }
   canvas {
     display: block;
