@@ -61,11 +61,11 @@ mod win {
     pub struct Out(pub usize);
     impl Out {
         pub fn open() -> Result<Out, String> {
-            let id = gs_device_id().ok_or("Microsoft GS Wavetable Synth が見つかりません")?;
+            let id = gs_device_id().ok_or("Microsoft GS Wavetable Synth not found")?;
             let mut h: *mut c_void = std::ptr::null_mut();
             let r = unsafe { midiOutOpen(&mut h, id, 0, 0, 0) };
             if r != 0 {
-                return Err(format!("midiOutOpen 失敗 (code {r})"));
+                return Err(format!("midiOutOpen failed (code {r})"));
             }
             Ok(Out(h as usize))
         }
@@ -196,7 +196,7 @@ fn play(state: tauri::State<Player>, events: Vec<Event>) -> Result<(), String> {
     #[cfg(not(windows))]
     {
         let _ = (events, flag);
-        Err("Windows専用機能です".into())
+        Err("Windows only feature".into())
     }
 }
 
@@ -219,9 +219,9 @@ fn test_beep(shell: String) -> TestResult {
                 stdout: String::from_utf8_lossy(&o.stdout).into(),
                 stderr: String::from_utf8_lossy(&o.stderr).into(),
                 message: if ok {
-                    format!("{exe}: 実行成功(音が聞こえたか確認してください)")
+                    format!("{exe}: Succeeded (Please check if you heard the sound)")
                 } else {
-                    format!("{exe}: 実行失敗")
+                    format!("{exe}: Failed")
                 },
             }
         }
@@ -230,7 +230,7 @@ fn test_beep(shell: String) -> TestResult {
             exit_code: None,
             stdout: String::new(),
             stderr: e.to_string(),
-            message: format!("{exe} を起動できません"),
+            message: format!("Cannot launch {exe}: {e}"),
         },
     }
 }
@@ -255,12 +255,12 @@ fn test_gs() -> TestResult {
             exit_code: Some(0),
             stdout: String::new(),
             stderr: String::new(),
-            message: "GS Wavetable Synth: テスト音を送信しました".into(),
+            message: "GS Wavetable Synth: Test note sent successfully".into(),
         }
     }
     #[cfg(not(windows))]
     {
-        TestResult { ok: false, exit_code: None, stdout: String::new(), stderr: String::new(), message: "Windows専用".into() }
+        TestResult { ok: false, exit_code: None, stdout: String::new(), stderr: String::new(), message: "Windows only".into() }
     }
 }
 

@@ -79,6 +79,27 @@
     }
   }
 
+  function formatBeepMsg(r: TestResult, shell: string): string {
+    if (r.ok) {
+      return t('test_beep_ok', { shell });
+    }
+    const err = r.stderr ? `\n${r.stderr}` : '';
+    if (r.exitCode === null) {
+      return `${t('test_beep_launch_fail', { shell })}${err}`;
+    }
+    return `${t('test_beep_ng', { shell })}${err}`;
+  }
+
+  function formatGsMsg(r: TestResult): string {
+    if (r.ok) {
+      return t('test_gs_ok');
+    }
+    if (r.message && (r.message.includes('not found') || r.message.includes('見つかりません'))) {
+      return t('test_gs_not_found');
+    }
+    return r.message || t('test_call_failed');
+  }
+
   async function copy() {
     await navigator.clipboard.writeText(app.script);
     copied = true;
@@ -448,17 +469,17 @@
             <button onclick={() => run(() => app.testBeep('powershell'), (r) => (beepPs = r))}>{t('test_beep_ps5')}</button>
             {#if beepPs}<span class="result" class:ok={beepPs.ok} class:ng={!beepPs.ok}>{beepPs.ok ? 'OK' : 'NG'}</span>{/if}
           </div>
-          {#if beepPs}<div class="msg">{beepPs.message}{beepPs.stderr ? `\n${beepPs.stderr}` : ''}</div>{/if}
+          {#if beepPs}<div class="msg">{formatBeepMsg(beepPs, 'powershell')}</div>{/if}
           <div class="row">
             <button onclick={() => run(() => app.testBeep('pwsh'), (r) => (beepPwsh = r))}>{t('test_beep_pwsh')}</button>
             {#if beepPwsh}<span class="result" class:ok={beepPwsh.ok} class:ng={!beepPwsh.ok}>{beepPwsh.ok ? 'OK' : 'NG'}</span>{/if}
           </div>
-          {#if beepPwsh}<div class="msg">{beepPwsh.message}{beepPwsh.stderr ? `\n${beepPwsh.stderr}` : ''}</div>{/if}
+          {#if beepPwsh}<div class="msg">{formatBeepMsg(beepPwsh, 'pwsh')}</div>{/if}
           <div class="row">
             <button onclick={() => run(() => app.testGs(), (r) => (gsRes = r))}>{t('test_gs_title')}</button>
             {#if gsRes}<span class="result" class:ok={gsRes.ok} class:ng={!gsRes.ok}>{gsRes.ok ? 'OK' : 'NG'}</span>{/if}
           </div>
-          {#if gsRes}<div class="msg">{gsRes.message}</div>{/if}
+          {#if gsRes}<div class="msg">{formatGsMsg(gsRes)}</div>{/if}
           <div class="row">
             <button onclick={async () => (devices = await app.devices())}>{t('test_midi_devices')}</button>
           </div>

@@ -125,6 +125,11 @@ export const translations = {
     test_gs_title: 'Microsoft GS Wavetable Synth',
     test_midi_devices: '検出されたMIDI出力デバイス',
     test_call_failed: '呼び出し失敗',
+    test_beep_ok: '{shell}: 実行成功 (音が聞こえたか確認してください)',
+    test_beep_ng: '{shell}: 実行失敗',
+    test_beep_launch_fail: '{shell} を起動できません',
+    test_gs_ok: 'GS Wavetable Synth: テスト音を送信しました',
+    test_gs_not_found: 'Microsoft GS Wavetable Synth が見つかりません',
 
     // MIDIインポートダイアログ
     midi_import_title: 'MIDI インポート確認',
@@ -267,6 +272,11 @@ export const translations = {
     test_gs_title: 'Microsoft GS Wavetable Synth',
     test_midi_devices: 'Detected MIDI Output Devices',
     test_call_failed: 'Call failed',
+    test_beep_ok: '{shell}: Succeeded (Please check if you heard the sound)',
+    test_beep_ng: '{shell}: Execution failed',
+    test_beep_launch_fail: 'Cannot launch {shell}',
+    test_gs_ok: 'GS Wavetable Synth: Test note sent successfully',
+    test_gs_not_found: 'Microsoft GS Wavetable Synth not found',
 
     // MIDI import dialog
     midi_import_title: 'Import MIDI File',
@@ -289,7 +299,13 @@ export const translations = {
 
 export type TranslationKey = keyof (typeof translations)['ja'];
 
-export function t(key: TranslationKey): string {
+export function t(key: TranslationKey, params?: Record<string, string | number>): string {
   const lang = settings.language;
-  return translations[lang]?.[key] ?? translations['ja'][key] ?? key;
+  let text: string = translations[lang]?.[key] ?? translations['ja'][key] ?? key;
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      text = text.replaceAll(`{${k}}`, String(v));
+    }
+  }
+  return text;
 }
