@@ -19,7 +19,9 @@
     X,
     FilePlus,
     FolderOpen,
-    Save
+    Save,
+    Upload,
+    FileCode
   } from '@lucide/svelte';
 
   const win = getCurrentWindow();
@@ -159,76 +161,97 @@
     <button class="wbtn close" onclick={() => win.close()} title="Close">×</button>
   </div>
   <header>
-    <div class="header-group">
-      <button class="icon-text-btn" onclick={() => app.newProject()} title="新規作成 (Ctrl+N)">
-        <FilePlus size={14} strokeWidth={2.5} />
-        <span>New</span>
+    <div class="header-row">
+      <div class="header-group">
+        <button class="icon-text-btn" onclick={() => app.newProject()} title="新規作成 (Ctrl+N)">
+          <FilePlus size={14} strokeWidth={2.5} />
+          <span>New</span>
+        </button>
+        <button class="icon-text-btn" onclick={() => app.openProjectDialog()} title="プロジェクトを開く (Ctrl+O)">
+          <FolderOpen size={14} strokeWidth={2.5} />
+          <span>Open</span>
+        </button>
+        <button class="icon-text-btn" onclick={() => app.saveProject()} title="上書き保存 (Ctrl+S)">
+          <Save size={14} strokeWidth={2.5} />
+          <span>Save</span>
+        </button>
+        <button class="icon-text-btn" onclick={() => app.saveProjectAs()} title="名前を付けて保存 (Ctrl+Shift+S)">
+          <Save size={14} strokeWidth={2.5} />
+          <span>Save As</span>
+        </button>
+      </div>
+      <span class="header-sep"></span>
+      <button onclick={() => app.play()} disabled={app.playing}>Play</button>
+      <button onclick={() => app.stop()}>Stop</button>
+      <button onclick={() => (showTest = true)}>Test</button>
+
+      <span class="spacer"></span>
+
+      <input
+        type="file"
+        accept=".mid,.midi"
+        style="display:none"
+        bind:this={midiFileInput}
+        onchange={handleMidiFileChange}
+      />
+      <button class="icon-text-btn" onclick={triggerMidiFile} title="MIDIファイルを読み込む">
+        <Upload size={14} strokeWidth={2.5} />
+        <span>Import MIDI</span>
       </button>
-      <button class="icon-text-btn" onclick={() => app.openProjectDialog()} title="プロジェクトを開く (Ctrl+O)">
-        <FolderOpen size={14} strokeWidth={2.5} />
-        <span>Open</span>
-      </button>
-      <button class="icon-text-btn" onclick={() => app.saveProject()} title="上書き保存 (Ctrl+S)">
-        <Save size={14} strokeWidth={2.5} />
-        <span>Save</span>
-      </button>
-      <button class="icon-text-btn" onclick={() => app.saveProjectAs()} title="名前を付けて保存 (Ctrl+Shift+S)">
-        <Save size={14} strokeWidth={2.5} />
-        <span>Save As</span>
+      <button
+        class="icon-text-btn export-btn"
+        onclick={() => (app.showScript = !app.showScript)}
+        title="PowerShellスクリプトを出力"
+      >
+        <FileCode size={14} strokeWidth={2.5} />
+        <span>Export .ps1</span>
       </button>
     </div>
-    <span class="header-sep"></span>
-    <button onclick={() => app.play()} disabled={app.playing}>Play</button>
-    <button onclick={() => app.stop()}>Stop</button>
-    <button onclick={() => (showTest = true)}>Test</button>
-    <label class="bpm"
-      >BPM <input type="number" min="30" max="300" bind:value={app.project.bpm} /></label
-    >
-    <label
-      >Grid
-      <select bind:value={app.quant}>
-        {#each quants as [v, l] (v)}<option value={v}>{l}</option>{/each}
-      </select></label
-    >
-    <label
-      >Length
-      <select
-        value={app.noteLengthChoice}
-        onchange={(e) => {
-          const val = e.currentTarget.value;
-          app.setNoteLength(val === 'grid' ? 'grid' : Number(val));
-        }}
+
+    <div class="header-row sub-row">
+      <label class="bpm"
+        >BPM <input type="number" min="30" max="300" bind:value={app.project.bpm} /></label
       >
-        <option value="grid">Grid</option>
-        {#each noteLengths as [v, l] (v)}<option value={v}>{l}</option>{/each}
-      </select></label
-    >
-    <label class="zoom-ctrl"
-      >Zoom
-      <button type="button" class="sq-btn" onclick={() => app.zoomOut()} title="Zoom Out (-)">-</button>
-      <button type="button" class="zoom-val" onclick={() => app.zoomReset()} title="Reset Zoom (100%)">
-        {Math.round((app.pxPerTick / 0.2) * 100)}%
-      </button>
-      <button type="button" class="sq-btn" onclick={() => app.zoomIn()} title="Zoom In (+)">+</button>
-    </label>
-    <label
-      >Bars <input type="number" min="1" max="64" bind:value={app.project.bars} style="width:70px" /></label
-    >
-    <span class="spacer"></span>
-    {#if app.timeline.beepConflicts > 0}
-      <span class="result ng" title="Beepは同時1音。重なった音は切り詰め/破棄されます"
-        >BEEP重なり {app.timeline.beepConflicts}</span
+      <label
+        >Grid
+        <select bind:value={app.quant}>
+          {#each quants as [v, l] (v)}<option value={v}>{l}</option>{/each}
+        </select></label
       >
-    {/if}
-    <input
-      type="file"
-      accept=".mid,.midi"
-      style="display:none"
-      bind:this={midiFileInput}
-      onchange={handleMidiFileChange}
-    />
-    <button onclick={triggerMidiFile}>Import MIDI</button>
-    <button onclick={() => (app.showScript = !app.showScript)}>Export .ps1</button>
+      <label
+        >Length
+        <select
+          value={app.noteLengthChoice}
+          onchange={(e) => {
+            const val = e.currentTarget.value;
+            app.setNoteLength(val === 'grid' ? 'grid' : Number(val));
+          }}
+        >
+          <option value="grid">Grid</option>
+          {#each noteLengths as [v, l] (v)}<option value={v}>{l}</option>{/each}
+        </select></label
+      >
+      <span class="header-sep"></span>
+      <label
+        >Bars <input type="number" min="1" max="64" bind:value={app.project.bars} style="width:70px" /></label
+      >
+      <label class="zoom-ctrl"
+        >Zoom
+        <button type="button" class="sq-btn" onclick={() => app.zoomOut()} title="Zoom Out (-)">-</button>
+        <button type="button" class="zoom-val" onclick={() => app.zoomReset()} title="Reset Zoom (100%)">
+          {Math.round((app.pxPerTick / 0.2) * 100)}%
+        </button>
+        <button type="button" class="sq-btn" onclick={() => app.zoomIn()} title="Zoom In (+)">+</button>
+      </label>
+
+      <span class="spacer"></span>
+
+      {#if app.timeline.beepConflicts > 0}
+        <span class="result ng" title="Beepは同時1音。重なった音は切り詰め/破棄されます"
+          >BEEP重なり {app.timeline.beepConflicts}</span
+        >
+      {/if}
+    </div>
   </header>
 
   <aside>
@@ -444,11 +467,21 @@
   header {
     grid-column: 1 / 3;
     display: flex;
-    gap: 14px;
-    align-items: center;
-    padding: 12px 16px;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 16px;
     border-bottom: var(--border);
-    flex-wrap: wrap;
+    background: var(--paper);
+  }
+  .header-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+  }
+  .export-btn {
+    background: var(--c-beep);
+    font-weight: bold;
   }
   .header-group {
     display: flex;
@@ -662,6 +695,11 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+  .tests .row button {
+    width: 200px;
+    text-align: center;
+    flex-shrink: 0;
   }
   .msg {
     font-family: var(--font-mono);
