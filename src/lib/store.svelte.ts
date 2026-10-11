@@ -48,11 +48,12 @@ class AppState {
   playing = $state(false);
   playheadMs = $state(-1);
   showScript = $state(false);
+  visualizer = $state(true);
   status = $state('');
 
   activeTrack = $derived(this.project.tracks.find((t) => t.id === this.activeTrackId) ?? this.project.tracks[0]);
   timeline = $derived(buildTimeline(this.project));
-  script = $derived(generateScript(this.project, this.timeline));
+  script = $derived(generateScript(this.project, this.timeline, { visualizer: this.visualizer }));
   totalTicks = $derived(this.project.bars * BEATS_PER_BAR * PPQ);
 
   addTrack(output: Output) {

@@ -6,6 +6,7 @@ export type EventKind = 'gs_prog' | 'gs_on' | 'gs_off' | 'beep';
 export interface TLEvent {
   tMs: number;
   kind: EventKind;
+  trackIndex?: number;
   ch?: number;
   pitch?: number;
   vel?: number;
@@ -33,47 +34,66 @@ export function buildTimeline(p: Project): Timeline {
   let beepConflicts = 0;
 
   // GS: トラック単位でProgram Change + NoteOn/Off
-  for (const t of p.tracks) {
-    if (t.mute || t.output !== 'gs' || t.notes.length === 0) continue;
+  p.tracks.forEach((t, tIdx) => {
+    if (t.mute || t.output !== 'gs' || t.notes.length === 0) return;
     hasGs = true;
-    events.push({ tMs: 0, kind: 'gs_prog', ch: t.channel, program: t.program });
+    events.push({ tMs: 0, kind: 'gs_prog', trackIndex: tIdx, ch: t.channel, program: t.program });
     for (const n of t.notes) {
       const vel = Math.max(1, Math.min(127, Math.round((n.velocity * t.volume) / 100)));
-      events.push({ tMs: Math.round(tickToMs(n.startTick, p.bpm)), kind: 'gs_on', ch: t.channel, pitch: n.pitch, vel });
+      events.push({
+        tMs: Math.round(tickToMs(n.startTick, p.bpm)),
+        kind: 'gs_on',
+        trackIndex: tIdx,
+        ch: t.channel,
+        pitch: n.pitch,
+        vel
+      });
       events.push({
         tMs: Math.round(tickToMs(n.startTick + n.durationTick, p.bpm)),
         kind: 'gs_off',
+        trackIndex: tIdx,
         ch: t.channel,
         pitch: n.pitch
       });
     }
-  }
+  });
 
   // Beep: 全Beepトラックを1本にまとめ、後から来た音を優先して前の音を切り詰める
-  const beep = p.tracks
-    .filter((t) => !t.mute && t.output === 'beep')
-    .flatMap((t) => t.notes)
-    .sort((a, b) => a.startTick - b.startTick || b.pitch - a.pitch);
-  const kept: typeof beep = [];
-  for (const n of beep) {
+  const beepNotes: { note: typeof p.tracks[0]['notes'][0]; trackIndex: number }[] = [];
+  p.tracks.forEach((t, tIdx) => {
+    if (t.mute || t.output !== 'beep') return;
+    for (const n of t.notes) {
+      beepNotes.push({ note: n, trackIndex: tIdx });
+    }
+  });
+  beepNotes.sort((a, b) => a.note.startTick - b.note.startTick || b.note.pitch - a.note.pitch);
+
+  const kept: typeof beepNotes = [];
+  for (const item of beepNotes) {
     const last = kept[kept.length - 1];
-    if (last && last.startTick === n.startTick) {
+    if (last && last.note.startTick === item.note.startTick) {
       beepConflicts++;
       continue;
     }
-    kept.push(n);
+    kept.push(item);
   }
-  kept.forEach((n, i) => {
+  kept.forEach((item, i) => {
     hasBeep = true;
     const next = kept[i + 1];
-    let endTick = n.startTick + n.durationTick;
-    if (next && next.startTick < endTick) {
-      endTick = next.startTick;
+    let endTick = item.note.startTick + item.note.durationTick;
+    if (next && next.note.startTick < endTick) {
+      endTick = next.note.startTick;
       beepConflicts++;
     }
-    const s = Math.round(tickToMs(n.startTick, p.bpm));
+    const s = Math.round(tickToMs(item.note.startTick, p.bpm));
     const e = Math.round(tickToMs(endTick, p.bpm));
-    events.push({ tMs: s, kind: 'beep', freq: noteToFreq(n.pitch), durMs: Math.max(1, e - s) });
+    events.push({
+      tMs: s,
+      kind: 'beep',
+      trackIndex: item.trackIndex,
+      freq: noteToFreq(item.note.pitch),
+      durMs: Math.max(1, e - s)
+    });
   });
 
   events.sort((a, b) => a.tMs - b.tMs || RANK[a.kind] - RANK[b.kind]);

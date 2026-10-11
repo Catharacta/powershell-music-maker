@@ -184,6 +184,10 @@
         <div class="row">
           <h2>music.ps1</h2>
           <span class="spacer"></span>
+          <label class="check-opt">
+            <input type="checkbox" bind:checked={app.visualizer} />
+            ターミナル演出
+          </label>
           <button onclick={copy}>{copied ? 'Copied!' : 'Copy'}</button>
           <button onclick={save}>Save .ps1</button>
           <button onclick={() => (app.showScript = false)}>Close</button>
@@ -520,5 +524,24 @@
     border: var(--border);
     background: var(--paper);
     resize: none;
+  }
+  .check-opt {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-family: var(--font-head);
+    user-select: none;
+    cursor: pointer;
+    background: var(--paper);
+    padding: 6px 10px;
+    border: var(--border);
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .check-opt input {
+    cursor: pointer;
+    width: 15px;
+    height: 15px;
+    accent-color: var(--c-beep);
   }
 </style>
