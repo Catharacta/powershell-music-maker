@@ -23,9 +23,15 @@
 
 ---
 
-## 📸 Screenshot
+## 📸 Demo & Screenshot
 
+### 🖥️ Desktop DAW GUI
 ![PowerShell Music Maker UI](docs/images/screenshot.png)
+
+### 📟 Live Console Visualizer (.ps1 Execution)
+<p align="center">
+  <img src="docs/images/powershell-music.gif" width="720" alt="Live Console Visualizer" />
+</p>
 
 ---
 

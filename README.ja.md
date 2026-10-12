@@ -23,9 +23,15 @@
 
 ---
 
-## 📸 スクリーンショット
+## 📸 デモ & スクリーンショット
 
+### 🖥️ デスクトップDAW GUI
 ![PowerShell Music Maker UI](docs/images/screenshot.png)
+
+### 📟 CLIビジュアライザ実機実行 (.ps1)
+<p align="center">
+  <img src="docs/images/powershell-music.gif" width="720" alt="CLIビジュアライザ実機実行" />
+</p>
 
 ---
 
