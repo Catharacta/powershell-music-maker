@@ -28,6 +28,8 @@ src-tauri/src/         Rust: Tauriコマンド
 - タイムラインはTSで生成しJSONでRustへ(単一の真実)
 - 再生はキャンセル可能にし、停止時に必ず All Notes Off
 - UIは Svelte 5 runes(`$state`, `$derived`)を使用
+- UIデザインはネオブルータリズムを徹底(太い黒枠 `2px solid var(--border)`、ハードシャドウ `var(--shadow)`、角丸0 `border-radius: 0`、原色アクセント)。詳細は `docs/DESIGN.md` の「UIデザイン」。色・枠・影はCSS変数に集約
+- ツールチップやダイアログ、バリデーション等を含め、ブラウザ標準の角丸UIやデフォルトのバリデーション吹き出し(Constraint Validation)は使用禁止。必ずアプリ内ネオブルータリズムコンポーネント(`neo-tooltip`等)で統一する
 - 絵文字は使用禁止。アイコンにはアイコンライブラリ(`@lucide/svelte`)を使用する
 - 雛形作成: `npm create tauri-app@latest`(Svelte + TypeScript)
 - 検証: `npm run tauri dev`、生成した.ps1を実際にpowershell/pwshで実行して確認

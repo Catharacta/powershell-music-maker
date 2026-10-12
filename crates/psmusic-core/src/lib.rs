@@ -69,15 +69,80 @@ mod tests {
             &tl,
             GeneratorOptions {
                 visualizer: true,
-                title: Some("My Test Song".to_string()),
-                artist: Some("Composer".to_string()),
+                title: Some("テスト曲".to_string()),
+                artist: Some("作曲者".to_string()),
             },
         );
         assert!(script.contains("PsMusic"));
-        assert!(script.contains("sb.AppendLine(BoxRow(\"TITLE : \" + Title));"));
-        assert!(script.contains("sb.AppendLine(BoxRow(\"ARTIST: \" + Artist));"));
+        // 型キャッシュ衝突を防ぐため、Beepのみでも PsMusic クラスには winmm.dll 定義が含まれるが、演奏部では Open() は呼ばれない
+        assert!(script.contains("winmm.dll"));
+        assert!(!script.contains("[PsMusic]::Open()"));
+        assert!(script.contains("[Console]::Beep(37, 1)"));
+        // 日本語が '?' にならずそのまま保持される
+        assert!(script.contains("テスト曲"));
+        assert!(script.contains("作曲者"));
+        assert!(script.contains("Melody"));
+        // ループ再生用構文
+        assert!(script.contains("do {"));
+        assert!(script.contains("while ([PsMusic]::ShouldLoop())"));
         assert!(script.contains("B 0 440 480"));
         assert!(script.contains("B 0 494 500"));
+
+        // GSトラックを含む場合は winmm.dll と [PsMusic]::Open() が入る
+        project.tracks.push(Track {
+            id: 2,
+            name: "和音トラック".to_string(),
+            output: Output::Gs,
+            channel: 1,
+            program: 48,
+            volume: 100,
+            mute: false,
+            notes: vec![Note {
+                id: 3,
+                start_tick: 0,
+                duration_tick: 480,
+                pitch: 60,
+                velocity: 100,
+            }],
+        });
+        let tl_gs = build_timeline(&project, TimelineOptions::default());
+        let script_gs = generate_script(&project, &tl_gs, GeneratorOptions::default());
+        assert!(script_gs.contains("winmm.dll"));
+        assert!(script_gs.contains("[PsMusic]::Open()"));
+        assert!(script_gs.contains("和音トラック"));
+
+        // GSトラックにノートが空（0個）の場合でも、GSトラックが存在すれば winmm.dll が入る
+        let mut empty_gs_project = Project::default();
+        empty_gs_project.tracks.push(Track {
+            id: 1,
+            name: "空GS".to_string(),
+            output: Output::Gs,
+            channel: 0,
+            program: 0,
+            volume: 100,
+            mute: false,
+            notes: vec![],
+        });
+        empty_gs_project.tracks.push(Track {
+            id: 2,
+            name: "Beep".to_string(),
+            output: Output::Beep,
+            channel: 2,
+            program: 0,
+            volume: 100,
+            mute: false,
+            notes: vec![Note {
+                id: 1,
+                start_tick: 0,
+                duration_tick: 480,
+                pitch: 60,
+                velocity: 100,
+            }],
+        });
+        let tl_empty_gs = build_timeline(&empty_gs_project, TimelineOptions::default());
+        let script_empty_gs = generate_script(&empty_gs_project, &tl_empty_gs, GeneratorOptions::default());
+        assert!(script_empty_gs.contains("winmm.dll"));
+        assert!(script_empty_gs.contains("[PsMusic]::Open()"));
     }
 
     #[test]

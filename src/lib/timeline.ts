@@ -34,7 +34,7 @@ const RANK: Record<EventKind, number> = { gs_prog: 0, gs_off: 1, gs_on: 2, beep:
 
 export function buildTimeline(p: Project, options: TimelineOptions = {}): Timeline {
   const beepOverlap = options.beepOverlap ?? 'latest';
-  const minGapMs = Math.max(0, options.beepMinGapMs ?? 20);
+  const minGapMs = Math.max(15, options.beepMinGapMs ?? 20);
   const minDurMs = Math.max(1, options.beepMinDurMs ?? 25);
   const events: TLEvent[] = [];
   let hasGs = false;

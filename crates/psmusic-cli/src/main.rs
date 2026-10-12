@@ -198,7 +198,8 @@ fn main() -> Result<()> {
                 },
             );
 
-            write_output_string(output.as_ref(), &script)?;
+            let script_with_bom = format!("\u{feff}{script}");
+            write_output_string(output.as_ref(), &script_with_bom)?;
             if let Some(p) = output {
                 eprintln!("Successfully generated script: {}", p.display());
             }

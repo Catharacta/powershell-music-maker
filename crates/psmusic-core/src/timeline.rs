@@ -96,7 +96,7 @@ pub fn build_timeline(p: &Project, options: TimelineOptions) -> Timeline {
     let mut has_gs = false;
     let mut has_beep = false;
     let mut beep_conflicts = 0;
-    let min_gap_ms = options.beep_min_gap_ms as f64;
+    let min_gap_ms = (options.beep_min_gap_ms as f64).max(15.0);
     let min_dur_ms = (options.beep_min_dur_ms as f64).max(1.0);
 
     // GS: トラック単位で Program Change + NoteOn/Off

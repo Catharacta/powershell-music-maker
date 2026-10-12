@@ -1,0 +1,203 @@
+{
+  "app": "powershell-music-maker",
+  "version": 1,
+  "project": {
+    "bpm": 120,
+    "bars": 8,
+    "tracks": [
+      {
+        "id": 1,
+        "name": "Mary Had a Little Lamb",
+        "output": "beep",
+        "channel": 2,
+        "program": 0,
+        "volume": 100,
+        "mute": false,
+        "notes": [
+          {
+            "id": 1,
+            "startTick": 0,
+            "durationTick": 455,
+            "pitch": 64,
+            "velocity": 100
+          },
+          {
+            "id": 2,
+            "startTick": 480,
+            "durationTick": 455,
+            "pitch": 62,
+            "velocity": 100
+          },
+          {
+            "id": 3,
+            "startTick": 960,
+            "durationTick": 455,
+            "pitch": 60,
+            "velocity": 100
+          },
+          {
+            "id": 4,
+            "startTick": 1440,
+            "durationTick": 455,
+            "pitch": 62,
+            "velocity": 100
+          },
+          {
+            "id": 5,
+            "startTick": 1920,
+            "durationTick": 455,
+            "pitch": 64,
+            "velocity": 100
+          },
+          {
+            "id": 6,
+            "startTick": 2400,
+            "durationTick": 455,
+            "pitch": 64,
+            "velocity": 100
+          },
+          {
+            "id": 7,
+            "startTick": 2880,
+            "durationTick": 935,
+            "pitch": 64,
+            "velocity": 100
+          },
+          {
+            "id": 8,
+            "startTick": 3840,
+            "durationTick": 455,
+            "pitch": 62,
+            "velocity": 100
+          },
+          {
+            "id": 9,
+            "startTick": 4320,
+            "durationTick": 455,
+            "pitch": 62,
+            "velocity": 100
+          },
+          {
+            "id": 10,
+            "startTick": 4800,
+            "durationTick": 935,
+            "pitch": 62,
+            "velocity": 100
+          },
+          {
+            "id": 11,
+            "startTick": 5760,
+            "durationTick": 455,
+            "pitch": 64,
+            "velocity": 100
+          },
+          {
+            "id": 12,
+            "startTick": 6240,
+            "durationTick": 455,
+            "pitch": 67,
+            "velocity": 100
+          },
+          {
+            "id": 13,
+            "startTick": 6720,
+            "durationTick": 935,
+            "pitch": 67,
+            "velocity": 100
+          },
+          {
+            "id": 14,
+            "startTick": 7680,
+            "durationTick": 455,
+            "pitch": 64,
+            "velocity": 100
+          },
+          {
+            "id": 15,
+            "startTick": 8160,
+            "durationTick": 455,
+            "pitch": 62,
+            "velocity": 100
+          },
+          {
+            "id": 16,
+            "startTick": 8640,
+            "durationTick": 455,
+            "pitch": 60,
+            "velocity": 100
+          },
+          {
+            "id": 17,
+            "startTick": 9120,
+            "durationTick": 455,
+            "pitch": 62,
+            "velocity": 100
+          },
+          {
+            "id": 18,
+            "startTick": 9600,
+            "durationTick": 455,
+            "pitch": 64,
+            "velocity": 100
+          },
+          {
+            "id": 19,
+            "startTick": 10080,
+            "durationTick": 455,
+            "pitch": 64,
+            "velocity": 100
+          },
+          {
+            "id": 20,
+            "startTick": 10560,
+            "durationTick": 455,
+            "pitch": 64,
+            "velocity": 100
+          },
+          {
+            "id": 21,
+            "startTick": 11040,
+            "durationTick": 455,
+            "pitch": 64,
+            "velocity": 100
+          },
+          {
+            "id": 22,
+            "startTick": 11520,
+            "durationTick": 455,
+            "pitch": 62,
+            "velocity": 100
+          },
+          {
+            "id": 23,
+            "startTick": 12000,
+            "durationTick": 455,
+            "pitch": 62,
+            "velocity": 100
+          },
+          {
+            "id": 24,
+            "startTick": 12480,
+            "durationTick": 455,
+            "pitch": 64,
+            "velocity": 100
+          },
+          {
+            "id": 25,
+            "startTick": 12960,
+            "durationTick": 455,
+            "pitch": 62,
+            "velocity": 100
+          },
+          {
+            "id": 26,
+            "startTick": 13440,
+            "durationTick": 1895,
+            "pitch": 60,
+            "velocity": 100
+          }
+        ]
+      }
+    ]
+  }
+}

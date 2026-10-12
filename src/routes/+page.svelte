@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { app, type TestResult } from '$lib/store.svelte';
   import PianoRoll from '$lib/PianoRoll.svelte';
   import { GM_PROGRAMS } from '$lib/gm';
@@ -39,6 +40,15 @@
   let gsRes = $state<TestResult | null>(null);
   let devices = $state<string[]>([]);
   let copied = $state(false);
+
+  onMount(() => {
+    // ブラウザ標準のネイティブバリデーション吹き出しを抑止（ネオブルータリズムデザインの統一を保護）
+    const handleInvalid = (e: Event) => e.preventDefault();
+    window.addEventListener('invalid', handleInvalid, true);
+    return () => {
+      window.removeEventListener('invalid', handleInvalid, true);
+    };
+  });
 
   let midiFileInput: HTMLInputElement | undefined = $state();
   let pendingMidi = $state<ParsedMidiInfo | null>(null);
@@ -301,7 +311,7 @@
       </label>
       <span class="header-sep"></span>
       <label
-        >{t('bars')} <input type="number" min="1" max="64" bind:value={app.project.bars} style="width:70px" /></label
+        >{t('bars')} <input type="number" min="1" max="1024" bind:value={app.project.bars} style="width:85px" /></label
       >
       <label class="zoom-ctrl"
         >{t('zoom')}

@@ -107,7 +107,20 @@ impl Player {
         #[cfg(windows)]
         {
             let needs_gs = events.iter().any(|e| e.kind.starts_with("gs_"));
-            let out = if needs_gs { Some(win::Out::open()?) } else { None };
+            let needs_beep = events.iter().any(|e| e.kind == "beep");
+            let out = if needs_gs {
+                Some(win::Out::open()?)
+            } else if needs_beep {
+                // Beepのみの場合でもオーディオデバイスを起こすためにMIDI出力を試みる(失敗してもフォールバック)
+                win::Out::open().ok()
+            } else {
+                None
+            };
+
+            let max_end_ms = events
+                .iter()
+                .map(|e| e.t_ms + e.dur_ms.unwrap_or(0) as f64)
+                .fold(0.0, f64::max);
 
             let handle = thread::spawn(move || {
                 let start = Instant::now();
@@ -152,8 +165,13 @@ impl Player {
                         _ => {}
                     }
                 }
-                // 最後の音が鳴り終わるまで少し待ってから後始末
-                thread::sleep(Duration::from_millis(300));
+                // 最後の音が鳴り終わるまで待機
+                while start.elapsed().as_secs_f64() * 1000.0 < max_end_ms + 100.0 {
+                    if flag.load(Ordering::SeqCst) {
+                        break;
+                    }
+                    thread::sleep(Duration::from_millis(20));
+                }
                 if let Some(o) = &out {
                     o.all_off();
                 }

@@ -86,7 +86,7 @@ export function validateProjectFile(data: unknown): Project | null {
 
   return {
     bpm: Math.min(300, Math.max(30, Number(p.bpm) || 120)),
-    bars: Math.min(128, Math.max(1, Number(p.bars) || 8)),
+    bars: Math.min(1024, Math.max(1, Number(p.bars) || 8)),
     tracks
   };
 }

@@ -187,11 +187,11 @@
                     id="default-bars"
                     type="number"
                     min="1"
-                    max="128"
+                    max="1024"
                     bind:value={settings.editor.defaultBars}
                     class="input-num"
                   />
-                  <span class="unit">{t('bars')} (1 - 128)</span>
+                  <span class="unit">{t('bars')} (1 - 1024)</span>
                 </div>
               </div>
 

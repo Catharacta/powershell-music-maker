@@ -53,7 +53,7 @@ function loadSettings(): AppSettings {
       language: parsed.language === 'en' ? 'en' : 'ja',
       editor: {
         defaultBpm: Math.min(300, Math.max(30, Number(parsed.editor?.defaultBpm) || DEFAULT_SETTINGS.editor.defaultBpm)),
-        defaultBars: Math.min(128, Math.max(1, Number(parsed.editor?.defaultBars) || DEFAULT_SETTINGS.editor.defaultBars)),
+        defaultBars: Math.min(1024, Math.max(1, Number(parsed.editor?.defaultBars) || DEFAULT_SETTINGS.editor.defaultBars)),
         defaultQuant: Number(parsed.editor?.defaultQuant) || DEFAULT_SETTINGS.editor.defaultQuant,
         defaultOutput: parsed.editor?.defaultOutput === 'beep' ? 'beep' : 'gs',
         loadDemoNotes: typeof parsed.editor?.loadDemoNotes === 'boolean' ? parsed.editor.loadDemoNotes : DEFAULT_SETTINGS.editor.loadDemoNotes
